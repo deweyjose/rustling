@@ -53,6 +53,7 @@ ctrl+c  - quit
 # pattern classes
 Select a different pattern class using the p key
 Print a shape using the number in () to the left of the name
+
 "#;
 
 pub struct GridViewer {
@@ -97,13 +98,17 @@ impl GridViewer {
     pub fn render_help(&self) {
         self.render_header();
 
+        let width = self.grid.get_size().width;
+        let mut line_count = 0;
+
         for line in HELP.lines() {
             println!(
-                "{}{}{}\r",
+                "{}{}{:width$}\r",
                 color::Bg(color::Black),
                 color::Fg(color::Green),
                 line
             );
+            line_count += 1;
         }
 
         for pattern_type in &self.configuration {
@@ -113,8 +118,15 @@ impl GridViewer {
                 .enumerate()
                 .map(|e| format!("({}) {}", e.0 + 1, e.1.name))
                 .collect();
-            println!("{}\r", pattern_type.name);
-            println!(" {}\r", values.join(", "));
+
+            println!("{:width$}\r", pattern_type.name);
+            println!("{:width$}\r", values.join(", "));
+            println!("{:width$}\r", " ");
+            line_count += 3;
+        }
+
+        for _ in 0..self.grid.get_size().height - line_count {
+            println!("{:width$}\r", " ");
         }
 
         self.render_footer();
