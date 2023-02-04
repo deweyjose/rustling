@@ -18,6 +18,9 @@ It's easy - use the key pad to navigate and add more shapes to the grid.
 
 Mouse clicks can set the cursor point for faster navigation!
 
+You can increase or decrease the speed of the simulation using `+` or `-` keys.
+
+If the console window is resized the game needs to be reset using the `c` key.
 ### Patterns
 
 The game comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`.
@@ -25,6 +28,8 @@ The game comes with a predefined set of well known `pattern types`: `oscillators
 During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
 
 Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!).
+
+Feel free to customize [shapes.json](shapes.json) to add new patterns or even entirely new `pattern types`.
 
 Use the `h` help key to see what number key a specific pattern is.
 
