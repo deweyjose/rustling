@@ -21,6 +21,9 @@ Mouse clicks can set the cursor point for faster navigation!
 You can increase or decrease the speed of the simulation using `+` or `-` keys.
 
 If the console window is resized the game needs to be reset using the `c` key.
+
+<img src="docs/img/screencap.png" width="500">
+
 ### Patterns
 
 The game comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`.
