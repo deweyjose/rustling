@@ -1,8 +1,20 @@
 [package]
 name = "rustling"
 version = "0.1.0"
-authors = ["Dewey Jose <rjose@teikametrics.com>"]
+authors = ["Dewey Jose <richard.e.jose@gmail.com>"]
 edition = "2018"
+categories = ["command-line-utilities"]
+license = "MIT OR Apache-2.0"
+description = "A text editor for Conway's Game of Life"
+readme = "README.md"
+homepage = "https://github.com/deweyjose/rustling"
+repository = "https://github.com/deweyjose/rustling"
+keywords = ["cli", "editor", "conway", "game"]
+
 
 [dependencies]
-termion = "1.5.5"
+termion = "2.0.1"
+lazy_static = "1.4.0"
+serde_json = "1.0.91"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_repr = "0.1"
