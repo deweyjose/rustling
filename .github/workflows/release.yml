@@ -37,10 +37,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: rustling
-            asset_name: rustling-linux-amd64
+            asset_name: rustling-${{ needs.get-tag.outputs.pkg-version }}-linux-amd64
           - os: macos-latest
             artifact_name: rustling
-            asset_name: rustling-macos-amd64
+            asset_name: rustling-${{ needs.get-tag.outputs.pkg-version }}-macos-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -56,7 +56,7 @@ jobs:
 
   release-shapes-installer:
     name: Release Shapes and installer
-    needs: "release"
+    needs: ["release","get-tag"]
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout code
