@@ -16,7 +16,7 @@ mod size;
 fn main() {
     let args: Vec<String> = env::args().collect();
     let configuration: Vec<PatternType> =
-        if let Ok(mut file) = File::open(args.get(1).unwrap_or(&String::from("shapes.json"))) {
+        if let Ok(mut file) = File::open(args.get(1).unwrap_or(&String::from("patterns.json"))) {
             let mut buff = String::new();
             file.read_to_string(&mut buff).unwrap();
             serde_json::from_str(&buff).unwrap()

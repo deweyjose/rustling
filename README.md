@@ -12,7 +12,7 @@ A text editor version of [Conways Game of Life](https://en.wikipedia.org/wiki/Co
 
 ## Game Play
 
-It's easy - use the key pad to navigate and add more shapes to the grid. 
+It's easy - use the key pad to navigate and add more patterns to the grid. 
 - up, down, left and right keys
 - tab and back-tab (shift+tab)
 
@@ -24,17 +24,55 @@ If the console window is resized the game needs to be reset using the `c` key.
 
 <img src="docs/img/screencap.png" width="500">
 
+## Usage
+
+If [patterns.json](patterns.json) is in the current working directory no arguments need to specified to run rustling.
+
+```console
+% rustling
+```
+
+Or specify a path to [patterns.json](patterns.json).
+```console
+% rustling some/path/patterns.json
+```
+
+If you built your own patterns file simply supply a path to it instead.
+```console
+% rustling paht/customize.json
+```
+
 ### Patterns
 
-The game comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`.
+The ga me comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`. During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
+Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!).  Use the `h` help key to see what number key a specific pattern is.
 
-During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
+#### patterns.json
+rustling loads a predefined set of patterns at startup. 
+Simply place [patterns.json](patterns.json) in the same directory as the rustling 
+binary and run it. Feel free to customize the list of patterns, 
+or even define you're own patterns.
 
-Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!).
+If no shape file can be found at startup a simple blinker is loaded as the default shape.
 
-Feel free to customize [shapes.json](shapes.json) to add new patterns or even entirely new `pattern types`.
-
-Use the `h` help key to see what number key a specific pattern is.
+Example structure
+```json
+[
+  {
+    "name": "methuselahs",
+    "patterns": [
+      {
+        "name": "r-pentomino",
+        "matrix": [
+          [0,1,1],
+          [1,1,0],
+          [0,1,0]
+        ]
+      }
+    ]
+  }
+]
+```
 
 ### Cells
 
@@ -43,7 +81,7 @@ Individual cells can be manually set to `Alive` or `Dead` using the `a` or `d` k
 ## Help
 Press the `h` key to display or hide help. The simulation is paused while help is displayed.
 
-Below is an example of the help screen. If you've made any customizations to [shapes.json](shapes.json) they will be reflected in the help screen.
+Below is an example of the help screen. If you've made any customizations to [patterns.json](patterns.json) they will be reflected in the help screen.
 
 ```console
 # command keys:
@@ -54,7 +92,7 @@ d       - toggle cursor point dead
 e       - move cursor to the end of the current line
 h       - display help, or exit help if currently rendered
 l       - print the previous pattern again
-p       - cycle through the pattern classes defined in shapes.json
+p       - cycle through the pattern classes defined in patterns.json
 q       - quit
 r       - rotate the current shape 90 degrees
 s       - toggle the simulation run loop
