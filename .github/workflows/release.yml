@@ -29,6 +29,8 @@ jobs:
 
   release:
     name: Build and Release
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: "get-tag"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -43,7 +45,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Build project
-        run: cargo build --release --locked
+        run: cargo build --release
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2
         with:
