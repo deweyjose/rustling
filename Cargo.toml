@@ -9,7 +9,7 @@ description = "A text editor for Conway's Game of Life"
 readme = "README.md"
 homepage = "https://github.com/deweyjose/rustling"
 repository = "https://github.com/deweyjose/rustling"
-keywords = ["cli", "editor", "conway", "game"]
+keywords = ["cli", "editor", "conway", "games", "simulation"]
 
 
 [dependencies]
