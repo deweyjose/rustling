@@ -61,11 +61,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Upload shapes.json to release
+      - name: Upload patterns.json to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: shapes.json
-          asset_name: shapes.json
+          file: patterns.json
+          asset_name: patterns.json
           tag: ${{ needs.get-tag.outputs.pkg-version }}
 

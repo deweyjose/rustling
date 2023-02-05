@@ -40,7 +40,7 @@ d       - toggle cursor point dead
 e       - move cursor to the end of the current line
 h       - display help, or exit help if currently rendered
 l       - print the previous pattern again
-p       - cycle through the pattern classes defined in shapes.json
+p       - cycle through the pattern classes defined in patterns.json
 q       - quit
 r       - rotate the current shape 90 degrees
 s       - toggle the simulation run loop
