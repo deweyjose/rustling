@@ -79,3 +79,8 @@ jobs:
         with:
           command: "clippy"
           args: "-- -D warnings"
+
+  build:
+    name: "Cargo build"
+    runs-on: "ubunto-latest"
+    steps:
