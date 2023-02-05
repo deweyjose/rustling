@@ -29,7 +29,7 @@ use crate::grid_input;
 use crate::pattern;
 use crate::size::Size;
 
-const DEFAULT_ZERO: usize = 0 as usize;
+const DEFAULT_ZERO: usize = 0_usize;
 
 const HELP: &str = r#"
 # command keys:
@@ -152,7 +152,7 @@ impl GridViewer {
                 .grid
                 .get_row(row)
                 .iter()
-                .map(|e| format!("{}", e))
+                .map(|e| format!("{e}"))
                 .collect();
             println!(
                 "{}{}{}\r",
@@ -179,9 +179,9 @@ impl GridViewer {
                 .get(&last)
                 .unwrap_or(&DEFAULT_ZERO);
 
-            (pattern, rotation.clone())
+            (pattern, rotation)
         } else {
-            ("none", 0)
+            ("none", &0)
         };
 
         let width = self.grid.get_size().width;
@@ -436,12 +436,9 @@ impl GridViewer {
                             _ => {}
                         },
                     },
-                    Event::Mouse(me) => match me {
-                        MouseEvent::Press(_, x, y) => {
-                            self.set_pos(x as usize, y as usize);
-                        }
-                        _ => (),
-                    },
+                    Event::Mouse(MouseEvent::Press(_, x, y)) => {
+                        self.set_pos(x as usize, y as usize)
+                    }
                     _ => {}
                 };
             }

@@ -42,11 +42,6 @@ impl Grid {
         &self.lines[row]
     }
 
-    // clear the grid
-    pub fn clear(&mut self) {
-        self.lines = Grid::init_grid(&self.size);
-    }
-
     // resurrect a single cell
     pub fn resurrect(&mut self, position: Coordinates) {
         self.lines[position.y][position.x] = Alive;
