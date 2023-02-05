@@ -152,7 +152,7 @@ impl GridViewer {
                 .grid
                 .get_row(row)
                 .iter()
-                .map(|e| format!("{}", e))
+                .map(|e| format!("{e}"))
                 .collect();
             println!(
                 "{}{}{}\r",
