@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::cmp::min;
 use std::collections::HashMap;
+use std::io::stdout;
+use std::io::Write;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -9,6 +11,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use termion::color;
+use termion::cursor;
 use termion::event::Event;
 use termion::event::Event::Key;
 use termion::event::Key::BackTab;
@@ -133,17 +136,17 @@ impl GridViewer {
     }
 
     fn render_header(&self) {
-        print!("{}{}", termion::clear::All, termion::cursor::Goto(1, 1));
         let width = self.grid.get_size().width;
         let header = "Welcome to Game of Life Text Editor. (h)elp";
-        println!(
+        print!(
             "{}{}{}{:width$}\r{}",
-            color::Bg(color::Black),
+            cursor::Goto(1, 1),
             color::Fg(color::Red),
             style::Bold,
             header,
             style::Reset
         );
+        stdout().flush().unwrap();
     }
 
     fn render_grid(&self) {
@@ -154,21 +157,18 @@ impl GridViewer {
                 .iter()
                 .map(|e| format!("{e}"))
                 .collect();
-            println!(
-                "{}{}{}\r",
+            print!(
+                "{}{}{}{}",
+                cursor::Goto(1, (row + 2) as u16),
                 color::Bg(color::Black),
                 color::Fg(color::Green),
                 values.join("")
             );
+            stdout().flush().unwrap();
         }
     }
 
     fn render_footer(&self) {
-        println!(
-            "{}",
-            termion::cursor::Goto(0, (self.size.height - 1) as u16),
-        );
-
         let (last_pattern, last_rotation) = if let Some(last) = self.last_pattern {
             let pattern = self.configuration[self.current_pattern_type].patterns[last]
                 .name
@@ -198,14 +198,16 @@ impl GridViewer {
             last_rotation
         );
 
-        println!(
-            "{}{}{}{:width$}{}",
+        print!(
+            "{}{}{}{}{:width$}{}",
+            cursor::Goto(1, self.size.height as u16),
             color::Bg(color::Black),
             color::Fg(color::Red),
             style::Bold,
             footer,
             style::Reset
         );
+        stdout().flush().unwrap();
     }
 
     pub fn render(&mut self) {
@@ -220,10 +222,11 @@ impl GridViewer {
     fn set_pos(&mut self, x: usize, y: usize) {
         self.cur_pos.x = x;
         self.cur_pos.y = y;
-        println!(
+        print!(
             "{}",
-            termion::cursor::Goto(self.cur_pos.x as u16, self.cur_pos.y as u16)
+            cursor::Goto(self.cur_pos.x as u16, self.cur_pos.y as u16)
         );
+        stdout().flush().unwrap();
     }
 
     fn dec_x(&mut self) {
@@ -309,6 +312,9 @@ impl GridViewer {
         let mut wait_for_state: Vec<termion::event::Key> = Vec::new();
         let mut last_render = Instant::now();
 
+        self.render();
+        self.set_pos(self.size.width / 2, self.size.height / 2);
+
         loop {
             if wait_for_state.is_empty()
                 && last_render.elapsed().as_millis() > self.simulation_delay
@@ -331,8 +337,14 @@ impl GridViewer {
                             }
                         }
                         _ => match key {
-                            Ctrl('c') => break,
-                            Char('q') => break,
+                            Ctrl('c') => {
+                                self.set_pos(1, 1);
+                                break;
+                            }
+                            Char('q') => {
+                                self.set_pos(1, 1);
+                                break;
+                            }
                             Left => self.dec_x(),
                             Right => self.inc_x(),
                             Up => self.dec_y(),

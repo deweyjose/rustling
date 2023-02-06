@@ -69,8 +69,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustling"
-version = "0.1.4"
+name = "rustmaton"
+version = "0.2.0"
 dependencies = [
  "lazy_static",
  "serde",
