@@ -1,7 +1,7 @@
 #!/bin/sh
 
 RUSTLING_RELEASES="${RUSTLING_RELEASES:-https://github.com/deweyjose/rustling/releases}"
-VERSION="${VERSION:-0.1.3}"
+VERSION="${VERSION:-0.1.4}"
 
 main() {
   need_cmd mkdir
@@ -10,7 +10,7 @@ main() {
 
   local _arch="$RETVAL"
 
-  local _file="rustling-0.1.3-${_arch}-amd64"
+  local _file="rustling-${VERSION}-${_arch}-amd64"
   local _url="${RUSTLING_RELEASES}/download/${VERSION}/${_file}"
 
   mkdir -p rustling
