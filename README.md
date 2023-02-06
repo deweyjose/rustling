@@ -24,6 +24,13 @@ If the console window is resized the game needs to be reset using the `c` key.
 
 <img src="docs/img/screencap.png" width="500">
 
+## Install
+
+The installer will create a directory named `rustling` with the executable and patterns.json file.
+
+```console
+curl --location https://github.com/deweyjose/rustling/releases/download/0.1.4/install.sh | sh
+```
 ## Usage
 
 If [patterns.json](patterns.json) is in the current working directory no arguments need to specified to run rustling.
