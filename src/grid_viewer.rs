@@ -75,13 +75,13 @@ pub fn init(configuration: Vec<pattern::PatternType>) -> GridViewer {
     let (width, height) = termion::terminal_size().unwrap();
 
     let grid = Grid::new(Size {
-        width: width as usize,
-        height: (height - 3) as usize,
+        width: width as usize * 2,
+        height: height as usize * 2,
     });
 
     let size = Size {
         width: width as usize,
-        height: (height - 1) as usize,
+        height: height as usize,
     };
 
     GridViewer {
@@ -136,7 +136,7 @@ impl GridViewer {
     }
 
     fn render_header(&self) {
-        let width = self.grid.get_size().width;
+        let width = self.size.width;
         let header = "Welcome to Game of Life Text Editor. (h)elp";
         print!(
             "{}{}{}{:width$}\r{}",
@@ -150,20 +150,20 @@ impl GridViewer {
     }
 
     fn render_grid(&self) {
-        for row in 0..self.grid.get_size().height {
-            let values: Vec<String> = self
-                .grid
-                .get_row(row)
-                .iter()
-                .map(|e| format!("{e}"))
-                .collect();
-            print!(
-                "{}{}{}{}",
-                cursor::Goto(1, (row + 2) as u16),
-                color::Bg(color::Black),
-                color::Fg(color::Green),
-                values.join("")
-            );
+        let x_offset = (self.grid.get_size().width - self.size.width) / 2;
+        let y_offset = (self.grid.get_size().height - self.size.height) / 2;
+
+        for row in 2..self.size.height {
+            let health = self.grid.get_row(y_offset + row - 2);
+
+            print!("{}{}", cursor::Goto(1, row as u16), color::Fg(color::Green));
+
+            stdout().flush().unwrap();
+
+            for column in 0..self.size.width {
+                print!("{}", health[column + x_offset]);
+            }
+
             stdout().flush().unwrap();
         }
     }
@@ -184,9 +184,11 @@ impl GridViewer {
             ("none", &0)
         };
 
-        let width = self.grid.get_size().width;
+        let width = self.size.width;
         let footer = format!(
-            "cursor {}, (s){}, (p)attern class: {}, (l)ast pattern {}, (r)otation {} degrees",
+            "grid {}, view-port {}, cursor {}, (s){}, (p)attern class: {}, (l)ast pattern {}, (r)otation {} degrees",
+            self.grid.get_size(),
+            self.size,
             self.cur_pos,
             if self.running {
                 "top".to_string()
@@ -199,9 +201,8 @@ impl GridViewer {
         );
 
         print!(
-            "{}{}{}{}{:width$}{}",
-            cursor::Goto(1, self.size.height as u16),
-            color::Bg(color::Black),
+            "{}{}{}{:width$}{}",
+            cursor::Goto(1, (self.size.height + 1) as u16),
             color::Fg(color::Red),
             style::Bold,
             footer,
@@ -243,35 +244,29 @@ impl GridViewer {
     }
 
     fn dec_y(&mut self) {
-        self.cur_pos.y = max(self.cur_pos.y - 1, 1);
+        self.cur_pos.y = max(self.cur_pos.y - 1, 2);
     }
 
     fn inc_x(&mut self) {
-        self.cur_pos.x = min(self.cur_pos.x + 1, self.grid.get_size().width);
+        self.cur_pos.x = min(self.cur_pos.x + 1, self.size.width);
     }
 
     fn add_x(&mut self, amount: usize) {
-        self.cur_pos.x = min(self.cur_pos.x + amount, self.grid.get_size().width);
+        self.cur_pos.x = min(self.cur_pos.x + amount, self.size.width);
     }
 
     fn inc_y(&mut self) {
-        self.cur_pos.y = min(self.cur_pos.y + 1, self.grid.get_size().height);
+        self.cur_pos.y = min(self.cur_pos.y + 1, self.size.height);
     }
 
-    fn normalize_position(&self) -> Coordinates {
-        let x = if self.cur_pos.x == 0 {
-            0
-        } else {
-            self.cur_pos.x - 1
-        };
+    fn view_to_grid_coordinates(&self) -> Coordinates {
+        let x_offset = (self.grid.get_size().width - self.size.width) / 2;
+        let y_offset = (self.grid.get_size().height - self.size.height) / 2;
 
-        let y = if self.cur_pos.y == 0 {
-            0
-        } else {
-            self.cur_pos.y - 1
-        };
-
-        Coordinates { x, y }
+        Coordinates {
+            x: x_offset + self.cur_pos.x - 1,
+            y: y_offset + self.cur_pos.y - 2,
+        }
     }
 
     fn rotate_last_shape(&mut self) {
@@ -327,7 +322,7 @@ impl GridViewer {
             }
 
             let result = rx.recv_timeout(Duration::from_millis(25));
-            let grid_position = self.normalize_position();
+            let grid_position = self.view_to_grid_coordinates();
             if let Ok(event) = result {
                 match event {
                     Key(key) => match wait_for_state.is_empty() {
@@ -368,13 +363,13 @@ impl GridViewer {
                                 let (width, height) = termion::terminal_size().unwrap();
 
                                 let grid = Grid::new(Size {
-                                    width: width as usize,
-                                    height: (height - 3) as usize,
+                                    width: width as usize * 2,
+                                    height: height as usize * 2,
                                 });
 
                                 let size = Size {
                                     width: width as usize,
-                                    height: (height - 1) as usize,
+                                    height: height as usize,
                                 };
 
                                 self.grid = grid;
@@ -385,7 +380,7 @@ impl GridViewer {
                                 self.dec_x();
                             }
                             Char('e') => {
-                                self.cur_pos.x = self.grid.get_size().width;
+                                self.cur_pos.x = self.size.width;
                             }
                             Char('h') => {
                                 self.render_help();
