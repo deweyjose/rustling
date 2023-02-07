@@ -55,7 +55,7 @@ jobs:
           tag: ${{ needs.get-tag.outputs.pkg-version }}
 
   release-shapes-installer:
-    name: Release Shapes and installer
+    name: Release patterns and installer
     needs: ["release","get-tag"]
     runs-on: "ubuntu-latest"
     steps:
