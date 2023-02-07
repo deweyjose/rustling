@@ -29,24 +29,24 @@ If the console window is resized the game needs to be reset using the `c` key.
 The installer will create a directory named `rustmaton` with the executable and patterns.json file.
 
 ```console
-curl --location https://github.com/deweyjose/rustling/releases/download/0.2.2/install.sh | sh
+curl --location https://github.com/deweyjose/rustling/releases/download/0.2.3/install.sh | sh
 ```
 ## Usage
 
 If [patterns.json](patterns.json) is in the current working directory no arguments need to specified to run rustling.
 
 ```console
-% rustling
+% rustmaton
 ```
 
 Or specify a path to [patterns.json](patterns.json).
 ```console
-% rustling some/path/patterns.json
+% rustmaton some/path/patterns.json
 ```
 
 If you built your own patterns file simply supply a path to it instead.
 ```console
-% rustling paht/customize.json
+% rustmaton path/customize.json
 ```
 
 ### Patterns
@@ -55,8 +55,8 @@ The ga me comes with a predefined set of well known `pattern types`: `oscillator
 Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!).  Use the `h` help key to see what number key a specific pattern is.
 
 #### patterns.json
-rustling loads a predefined set of patterns at startup. 
-Simply place [patterns.json](patterns.json) in the same directory as the rustling 
+rustmaton loads a predefined set of patterns at startup. 
+Simply place [patterns.json](patterns.json) in the same directory as the rustmaton 
 binary and run it. Feel free to customize the list of patterns, 
 or even define you're own patterns.
 
