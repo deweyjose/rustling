@@ -10,7 +10,6 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use termion::color;
 use termion::cursor;
 use termion::event::Event;
 use termion::event::Event::Key;
@@ -25,6 +24,7 @@ use termion::event::Key::Right;
 use termion::event::Key::Up;
 use termion::event::MouseEvent;
 use termion::style;
+use termion::{clear, color};
 
 use crate::coordinates::Coordinates;
 use crate::grid::Grid;
@@ -69,20 +69,27 @@ pub struct GridViewer {
     last_pattern: Option<usize>,
     last_pattern_rotation: HashMap<usize, usize>,
     simulation_delay: u128,
+    grid_multiplier: usize,
 }
 
-pub fn init(configuration: Vec<pattern::PatternType>) -> GridViewer {
+fn init_grid_and_size(grid_multiplier: usize) -> (Grid, Size) {
     let (width, height) = termion::terminal_size().unwrap();
 
     let grid = Grid::new(Size {
-        width: width as usize * 2,
-        height: height as usize * 2,
+        width: width as usize * grid_multiplier,
+        height: height as usize * grid_multiplier,
     });
 
     let size = Size {
         width: width as usize,
         height: height as usize,
     };
+
+    (grid, size)
+}
+
+pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) -> GridViewer {
+    let (grid, size) = init_grid_and_size(grid_multiplier);
 
     GridViewer {
         grid,
@@ -94,6 +101,7 @@ pub fn init(configuration: Vec<pattern::PatternType>) -> GridViewer {
         last_pattern: None,
         last_pattern_rotation: HashMap::new(),
         simulation_delay: 50,
+        grid_multiplier,
     }
 }
 
@@ -101,17 +109,18 @@ impl GridViewer {
     pub fn render_help(&self) {
         self.render_header();
 
-        let width = self.grid.get_size().width;
-        let mut line_count = 0;
+        let width = self.size.width;
+        let mut current_line = 2;
 
         for line in HELP.lines() {
-            println!(
-                "{}{}{:width$}\r",
-                color::Bg(color::Black),
+            print!(
+                "{}{}{}{:width$}\r",
+                cursor::Goto(1, current_line),
+                clear::CurrentLine,
                 color::Fg(color::Green),
                 line
             );
-            line_count += 1;
+            current_line += 1;
         }
 
         for pattern_type in &self.configuration {
@@ -122,14 +131,31 @@ impl GridViewer {
                 .map(|e| format!("({}) {}", e.0 + 1, e.1.name))
                 .collect();
 
-            println!("{:width$}\r", pattern_type.name);
-            println!("{:width$}\r", values.join(", "));
-            println!("{:width$}\r", " ");
-            line_count += 3;
+            print!(
+                "{}{}{:width$}\r",
+                cursor::Goto(1, current_line),
+                clear::CurrentLine,
+                pattern_type.name
+            );
+            current_line += 1;
+            print!(
+                "{}{}{:width$}\r",
+                cursor::Goto(1, current_line),
+                clear::CurrentLine,
+                values.join(", ")
+            );
+            current_line += 1;
+            print!(
+                "{}{}{:width$}\r",
+                cursor::Goto(1, current_line),
+                clear::CurrentLine,
+                " "
+            );
+            current_line += 1;
         }
 
-        for _ in 0..self.grid.get_size().height - line_count {
-            println!("{:width$}\r", " ");
+        for line in current_line..self.grid.get_size().height as u16 {
+            print!("{}{}", cursor::Goto(1, line), clear::CurrentLine);
         }
 
         self.render_footer();
@@ -230,32 +256,32 @@ impl GridViewer {
         stdout().flush().unwrap();
     }
 
-    fn dec_x(&mut self) {
+    fn move_cur_left(&mut self) {
         if self.cur_pos.x > 0 {
             self.cur_pos.x -= 1;
         }
     }
 
-    fn sub_x(&mut self, amount: usize) {
+    fn move_cur_left_by(&mut self, amount: usize) {
         match self.cur_pos.x.checked_sub(amount) {
             Some(s) => self.cur_pos.x = s,
             _ => self.cur_pos.x = 0,
         };
     }
 
-    fn dec_y(&mut self) {
+    fn move_cur_up(&mut self) {
         self.cur_pos.y = max(self.cur_pos.y - 1, 2);
     }
 
-    fn inc_x(&mut self) {
+    fn move_cur_right(&mut self) {
         self.cur_pos.x = min(self.cur_pos.x + 1, self.size.width);
     }
 
-    fn add_x(&mut self, amount: usize) {
+    fn move_cur_right_by(&mut self, amount: usize) {
         self.cur_pos.x = min(self.cur_pos.x + amount, self.size.width);
     }
 
-    fn inc_y(&mut self) {
+    fn move_cur_down(&mut self) {
         self.cur_pos.y = min(self.cur_pos.y + 1, self.size.height);
     }
 
@@ -340,44 +366,33 @@ impl GridViewer {
                                 self.set_pos(1, 1);
                                 break;
                             }
-                            Left => self.dec_x(),
-                            Right => self.inc_x(),
-                            Up => self.dec_y(),
-                            Down => self.inc_y(),
+                            Left => self.move_cur_left(),
+                            Right => self.move_cur_right(),
+                            Up => self.move_cur_up(),
+                            Down => self.move_cur_down(),
                             Backspace => {
                                 self.grid.kill(grid_position);
-                                self.dec_x();
+                                self.move_cur_left();
                             }
-                            BackTab => self.sub_x(4),
+                            BackTab => self.move_cur_left_by(4),
                             Char('\t') => {
-                                self.add_x(4);
+                                self.move_cur_right_by(4);
                             }
                             Char('a') => {
                                 self.grid.resurrect(grid_position);
-                                self.inc_x();
+                                self.move_cur_right();
                             }
                             Char('b') => {
                                 self.cur_pos.x = 1;
                             }
                             Char('c') => {
-                                let (width, height) = termion::terminal_size().unwrap();
-
-                                let grid = Grid::new(Size {
-                                    width: width as usize * 2,
-                                    height: height as usize * 2,
-                                });
-
-                                let size = Size {
-                                    width: width as usize,
-                                    height: height as usize,
-                                };
-
+                                let (grid, size) = init_grid_and_size(self.grid_multiplier);
                                 self.grid = grid;
                                 self.size = size;
                             }
                             Char('d') => {
                                 self.grid.kill(grid_position);
-                                self.dec_x();
+                                self.move_cur_left();
                             }
                             Char('e') => {
                                 self.cur_pos.x = self.size.width;

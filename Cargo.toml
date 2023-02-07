@@ -1,6 +1,6 @@
 [package]
 name = "rustmaton"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Dewey Jose <richard.e.jose@gmail.com>"]
 edition = "2018"
 categories = ["command-line-utilities"]
@@ -18,3 +18,4 @@ lazy_static = "1.4.0"
 serde_json = "1.0.91"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_repr = "0.1"
+clap = { version = "4.1.4", features = ["derive"] }
