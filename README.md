@@ -1,4 +1,4 @@
-# rustling
+# rustmaton
 A text editor version of [Conways Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life#Algorithms) implemented in Rust.
 
 ## Overview
