@@ -1,7 +1,7 @@
 #!/bin/sh
 
 RUSTMATON_RELEASES="${RUSTMATON_RELEASES:-https://github.com/deweyjose/rustmaton/releases}"
-VERSION="${VERSION:-0.2.2}"
+VERSION="${VERSION:-0.2.3}"
 
 main() {
   need_cmd mkdir
