@@ -1,6 +1,6 @@
 #!/bin/sh
 
-RUSTLING_RELEASES="${RUSTLING_RELEASES:-https://github.com/deweyjose/rustling/releases}"
+RUSTMATON_RELEASES="${RUSTMATON_RELEASES:-https://github.com/deweyjose/rustmaton/releases}"
 VERSION="${VERSION:-0.2.1}"
 
 main() {
@@ -10,16 +10,16 @@ main() {
 
   local _arch="$RETVAL"
 
-  local _file="rustling-${VERSION}-${_arch}-amd64"
-  local _url="${RUSTLING_RELEASES}/download/${VERSION}/${_file}"
+  local _file="rustmaton-${VERSION}-${_arch}-amd64"
+  local _url="${RUSTMATON_RELEASES}/download/${VERSION}/${_file}"
 
-  mkdir -p rustling
-  cd rustling
+  mkdir -p rustmaton
+  cd rustmaton
 
   ensure downloader "$_url" "$_file"
 
   local _file="patterns.json"
-  local _url="${RUSTLING_RELEASES}/download/${VERSION}/${_file}"
+  local _url="${RUSTMATON_RELEASES}/download/${VERSION}/${_file}"
   ensure downloader "$_url" "$_file"
 }
 
