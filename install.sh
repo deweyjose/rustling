@@ -1,6 +1,6 @@
 #!/bin/sh
 
-RUSTMATON_RELEASES="${RUSTMATON_RELEASES:-https://github.com/deweyjose/rustmaton/releases}"
+RUSTMATON_RELEASES="${RUSTMATON_RELEASES:-https://github.com/deweyjose/rustling/releases}"
 VERSION="${VERSION:-0.2.3}"
 
 main() {
