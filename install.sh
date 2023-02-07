@@ -1,7 +1,7 @@
 #!/bin/sh
 
 RUSTLING_RELEASES="${RUSTLING_RELEASES:-https://github.com/deweyjose/rustling/releases}"
-VERSION="${VERSION:-0.2.0}"
+VERSION="${VERSION:-0.2.1}"
 
 main() {
   need_cmd mkdir
