@@ -1,7 +1,7 @@
 #!/bin/sh
 
 RUSTMATON_RELEASES="${RUSTMATON_RELEASES:-https://github.com/deweyjose/rustling/releases}"
-VERSION="${VERSION:-0.2.3}"
+VERSION="${VERSION:-0.2.4}"
 
 main() {
   need_cmd mkdir
@@ -16,11 +16,15 @@ main() {
   mkdir -p rustmaton
   cd rustmaton
 
-  ensure downloader "$_url" "$_file"
+  ensure downloader "$_url" "rustmaton"
+
+  chmod +x "rustmaton"
 
   local _file="patterns.json"
   local _url="${RUSTMATON_RELEASES}/download/${VERSION}/${_file}"
   ensure downloader "$_url" "$_file"
+
+  echo "done :)"
 }
 
 downloader() {

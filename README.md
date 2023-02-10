@@ -29,7 +29,7 @@ If the console window is resized the game needs to be reset using the `c` key.
 The installer will create a directory named `rustmaton` with the executable and patterns.json file.
 
 ```console
-curl --location https://github.com/deweyjose/rustling/releases/download/0.2.3/install.sh | sh
+curl --location https://github.com/deweyjose/rustling/releases/download/0.2.4/install.sh | sh
 ```
 ## Usage
 
