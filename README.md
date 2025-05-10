@@ -1,6 +1,8 @@
 # rustmaton
 A text editor version of [Conways Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life#Algorithms) implemented in Rust.
 
+<img src="docs/img/gol.gif" width="500">
+
 ## Overview
 - The screen represents a grid of cells. 
 - Each cell can be alive or dead.
