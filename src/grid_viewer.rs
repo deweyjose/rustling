@@ -73,7 +73,7 @@ pub struct GridViewer {
 }
 
 fn init_grid_and_size(grid_multiplier: usize) -> (Grid, Size) {
-    let (width, height) = termion::terminal_size().unwrap();
+    let (width, height) = termion::terminal_size().unwrap_or((80, 24)); // Default fallback size
 
     let grid = Grid::new(Size {
         width: width as usize * grid_multiplier,
@@ -444,14 +444,16 @@ impl GridViewer {
                                 }
                             }
                             Char(c) if c.is_ascii_digit() => {
-                                let mut index: usize = c.to_digit(10).unwrap() as usize;
-                                if index > 0 {
-                                    index -= 1;
-                                    let patterns =
-                                        &self.configuration[self.current_pattern_type].patterns;
-                                    if index < patterns.len() {
-                                        self.last_pattern = Some(index);
-                                        self.grid.shape(grid_position, &patterns[index].matrix);
+                                if let Some(digit) = c.to_digit(10) {
+                                    let mut index = digit as usize;
+                                    if index > 0 {
+                                        index -= 1;
+                                        let patterns =
+                                            &self.configuration[self.current_pattern_type].patterns;
+                                        if index < patterns.len() {
+                                            self.last_pattern = Some(index);
+                                            self.grid.shape(grid_position, &patterns[index].matrix);
+                                        }
                                     }
                                 }
                             }
