@@ -72,6 +72,18 @@ pub struct GridViewer {
     grid_multiplier: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiMode {
+    Normal,
+    Help,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoopControl {
+    Continue,
+    Quit,
+}
+
 fn init_grid_and_size(grid_multiplier: usize) -> (Grid, Size) {
     let (width, height) = termion::terminal_size().unwrap();
 
@@ -323,6 +335,164 @@ impl GridViewer {
         }
     }
 
+    fn maybe_tick(&mut self, mode: UiMode, last_render: &mut Instant) {
+        if mode != UiMode::Normal {
+            return;
+        }
+
+        if last_render.elapsed().as_millis() <= self.simulation_delay {
+            return;
+        }
+
+        if self.running {
+            self.grid.generate();
+        }
+        *last_render = Instant::now();
+        self.render();
+    }
+
+    fn cycle_pattern_class(&mut self) {
+        self.last_pattern = None;
+        if self.configuration.is_empty() {
+            self.current_pattern_type = 0;
+            return;
+        }
+        self.current_pattern_type = (self.current_pattern_type + 1) % self.configuration.len();
+    }
+
+    fn handle_key(
+        &mut self,
+        key: termion::event::Key,
+        grid_position: Coordinates,
+        mode: &mut UiMode,
+    ) -> LoopControl {
+        // When help is open, only allow exiting it.
+        if *mode == UiMode::Help {
+            if matches!(key, Esc | Char('h')) {
+                *mode = UiMode::Normal;
+                // Restore the normal view immediately.
+                self.render();
+            }
+            return LoopControl::Continue;
+        }
+
+        match key {
+            Ctrl('c') | Char('q') => {
+                self.set_pos(1, 1);
+                LoopControl::Quit
+            }
+            Left => {
+                self.move_cur_left();
+                LoopControl::Continue
+            }
+            Right => {
+                self.move_cur_right();
+                LoopControl::Continue
+            }
+            Up => {
+                self.move_cur_up();
+                LoopControl::Continue
+            }
+            Down => {
+                self.move_cur_down();
+                LoopControl::Continue
+            }
+            Backspace => {
+                self.grid.kill(grid_position);
+                self.move_cur_left();
+                LoopControl::Continue
+            }
+            BackTab => {
+                self.move_cur_left_by(4);
+                LoopControl::Continue
+            }
+            Char('\t') => {
+                self.move_cur_right_by(4);
+                LoopControl::Continue
+            }
+            Char('a') => {
+                self.grid.resurrect(grid_position);
+                self.move_cur_right();
+                LoopControl::Continue
+            }
+            Char('b') => {
+                self.cur_pos.x = 1;
+                LoopControl::Continue
+            }
+            Char('c') => {
+                let (grid, size) = init_grid_and_size(self.grid_multiplier);
+                self.grid = grid;
+                self.size = size;
+                LoopControl::Continue
+            }
+            Char('d') => {
+                self.grid.kill(grid_position);
+                self.move_cur_left();
+                LoopControl::Continue
+            }
+            Char('e') => {
+                self.cur_pos.x = self.size.width;
+                LoopControl::Continue
+            }
+            Char('h') => {
+                self.render_help();
+                *mode = UiMode::Help;
+                LoopControl::Continue
+            }
+            Char('l') => {
+                if let Some(index) = self.last_pattern {
+                    self.grid.shape(
+                        grid_position,
+                        &self.configuration[self.current_pattern_type].patterns[index].matrix,
+                    );
+                }
+                LoopControl::Continue
+            }
+            Char('p') => {
+                self.cycle_pattern_class();
+                LoopControl::Continue
+            }
+            Char('r') => {
+                self.rotate_last_shape();
+                LoopControl::Continue
+            }
+            Char('s') => {
+                self.running = !self.running;
+                LoopControl::Continue
+            }
+            Char(' ') => {
+                self.grid.generate();
+                self.render();
+                LoopControl::Continue
+            }
+            Char('+') => {
+                if let Some(val) = self.simulation_delay.checked_sub(10) {
+                    self.simulation_delay = val;
+                }
+                LoopControl::Continue
+            }
+            Char('-') => {
+                if let Some(val) = self.simulation_delay.checked_add(10) {
+                    self.simulation_delay = val;
+                }
+                LoopControl::Continue
+            }
+            Char(c) if c.is_ascii_digit() => {
+                let mut index: usize = c.to_digit(10).unwrap() as usize;
+                if index > 0 {
+                    index -= 1;
+                    let patterns = &self.configuration[self.current_pattern_type].patterns;
+                    if index < patterns.len() {
+                        self.last_pattern = Some(index);
+                        self.grid.shape(grid_position, &patterns[index].matrix);
+                    }
+                }
+                LoopControl::Continue
+            }
+            _ => LoopControl::Continue,
+        }
+    }
+
     pub fn run(&mut self) {
         let (tx, rx): (Sender<Event>, Receiver<Event>) = mpsc::channel();
 
@@ -330,134 +500,24 @@ impl GridViewer {
             grid_input::grid_input(tx);
         });
 
-        let mut wait_for_state: Vec<termion::event::Key> = Vec::new();
+        let mut mode = UiMode::Normal;
         let mut last_render = Instant::now();
 
         self.render();
         self.set_pos(self.size.width / 2, self.size.height / 2);
 
         loop {
-            if wait_for_state.is_empty()
-                && last_render.elapsed().as_millis() > self.simulation_delay
-            {
-                if self.running {
-                    self.grid.generate();
-                }
-                last_render = Instant::now();
-                self.render();
-            }
+            self.maybe_tick(mode, &mut last_render);
 
             let result = rx.recv_timeout(Duration::from_millis(25));
             let grid_position = self.view_to_grid_coordinates();
             if let Ok(event) = result {
                 match event {
-                    Key(key) => match wait_for_state.is_empty() {
-                        false => {
-                            if wait_for_state.contains(&key) {
-                                wait_for_state.clear();
-                            }
+                    Key(key) => {
+                        if self.handle_key(key, grid_position, &mut mode) == LoopControl::Quit {
+                            break;
                         }
-                        _ => match key {
-                            Ctrl('c') => {
-                                self.set_pos(1, 1);
-                                break;
-                            }
-                            Char('q') => {
-                                self.set_pos(1, 1);
-                                break;
-                            }
-                            Left => self.move_cur_left(),
-                            Right => self.move_cur_right(),
-                            Up => self.move_cur_up(),
-                            Down => self.move_cur_down(),
-                            Backspace => {
-                                self.grid.kill(grid_position);
-                                self.move_cur_left();
-                            }
-                            BackTab => self.move_cur_left_by(4),
-                            Char('\t') => {
-                                self.move_cur_right_by(4);
-                            }
-                            Char('a') => {
-                                self.grid.resurrect(grid_position);
-                                self.move_cur_right();
-                            }
-                            Char('b') => {
-                                self.cur_pos.x = 1;
-                            }
-                            Char('c') => {
-                                let (grid, size) = init_grid_and_size(self.grid_multiplier);
-                                self.grid = grid;
-                                self.size = size;
-                            }
-                            Char('d') => {
-                                self.grid.kill(grid_position);
-                                self.move_cur_left();
-                            }
-                            Char('e') => {
-                                self.cur_pos.x = self.size.width;
-                            }
-                            Char('h') => {
-                                self.render_help();
-                                wait_for_state.push(key);
-                                wait_for_state.push(Esc);
-                            }
-                            Char('l') => {
-                                if let Some(index) = self.last_pattern {
-                                    self.grid.shape(
-                                        grid_position,
-                                        &self.configuration[self.current_pattern_type].patterns
-                                            [index]
-                                            .matrix,
-                                    );
-                                }
-                            }
-                            Char('p') => {
-                                self.last_pattern = None;
-                                match self.current_pattern_type {
-                                    x if x == self.configuration.len() - 1 => {
-                                        self.current_pattern_type = 0;
-                                    }
-                                    _ => {
-                                        self.current_pattern_type += 1;
-                                    }
-                                }
-                            }
-                            Char('r') => {
-                                self.rotate_last_shape();
-                            }
-                            Char('s') => {
-                                self.running = !self.running;
-                            }
-                            Char(' ') => {
-                                self.grid.generate();
-                                self.render();
-                            }
-                            Char('+') => {
-                                if let Some(val) = self.simulation_delay.checked_sub(10) {
-                                    self.simulation_delay = val;
-                                }
-                            }
-                            Char('-') => {
-                                if let Some(val) = self.simulation_delay.checked_add(10) {
-                                    self.simulation_delay = val;
-                                }
-                            }
-                            Char(c) if c.is_ascii_digit() => {
-                                let mut index: usize = c.to_digit(10).unwrap() as usize;
-                                if index > 0 {
-                                    index -= 1;
-                                    let patterns =
-                                        &self.configuration[self.current_pattern_type].patterns;
-                                    if index < patterns.len() {
-                                        self.last_pattern = Some(index);
-                                        self.grid.shape(grid_position, &patterns[index].matrix);
-                                    }
-                                }
-                            }
-                            _ => {}
-                        },
-                    },
+                    }
                     Event::Mouse(MouseEvent::Press(_, x, y)) => {
                         self.set_pos(x as usize, y as usize)
                     }
