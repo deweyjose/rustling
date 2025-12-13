@@ -1,7 +1,6 @@
 use crate::coordinates::Coordinates;
-use crate::grid::Health::Alive;
-use crate::grid::Health::Dead;
 use crate::health::Health;
+use crate::health::Health::{Alive, Dead};
 use crate::size::Size;
 
 #[allow(dead_code)]
@@ -99,171 +98,50 @@ impl Grid {
         }
     }
 
-    fn is_alive(cell: &Health) -> bool {
-        match cell {
-            Alive => true,
-            Dead => false,
-        }
-    }
+    fn count_living_neighbors(&self, row: usize, col: usize) -> usize {
+        // Out-of-bounds neighbors are treated as dead.
+        const OFFSETS: [(isize, isize); 8] = [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ];
 
-    // check to the north east
-    fn is_alive_ne(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row - 1][current_column + 1]) {
-            true => 1,
-            false => 0,
-        }
-    }
+        let height = self.lines.len() as isize;
+        let width = self.lines[0].len() as isize;
 
-    // check to the north
-    fn is_alive_n(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row - 1][current_column]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check to the north west
-    fn is_alive_nw(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row - 1][current_column - 1]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check to the west
-    fn is_alive_w(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row][current_column - 1]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check to the south west
-    fn is_alive_sw(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row + 1][current_column - 1]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check south
-    fn is_alive_s(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row + 1][current_column]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check south east
-    fn is_alive_se(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row + 1][current_column + 1]) {
-            true => 1,
-            false => 0,
-        }
-    }
-
-    // check east
-    fn is_alive_e(&self, current_row: usize, current_column: usize) -> usize {
-        match Self::is_alive(&self.lines[current_row][current_column + 1]) {
-            true => 1,
-            false => 0,
-        }
+        OFFSETS
+            .iter()
+            .filter_map(|(dr, dc)| {
+                let r = row as isize + dr;
+                let c = col as isize + dc;
+                if (0..height).contains(&r) && (0..width).contains(&c) {
+                    Some(&self.lines[r as usize][c as usize])
+                } else {
+                    None
+                }
+            })
+            .filter(|cell| matches!(cell, Alive))
+            .count()
     }
 
     pub fn generate(&mut self) {
         let mut changed: Vec<(usize, usize, Health)> = Vec::new();
-        for row in self.lines.iter().enumerate() {
-            for column in row.1.iter().enumerate() {
-                let mut living_neighbors = 0;
-                match row.0 {
-                    0 => {
-                        // nothing to the n
-                        match column.0 {
-                            0 => {
-                                // nothing behind me, check: e, se, s
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_se(row.0, column.0);
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                            }
-                            x if x == row.1.len() - 1 => {
-                                // nothing in front of me, check: s, sw, w
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                                living_neighbors += self.is_alive_sw(row.0, column.0);
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                            }
-                            _ => {
-                                // in front and behind me, check: e, se, s, sw, w
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_se(row.0, column.0);
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                                living_neighbors += self.is_alive_sw(row.0, column.0);
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                            }
-                        }
-                    }
-                    x if x == self.lines.len() - 1 => {
-                        // nothing to the s
-                        match column.0 {
-                            0 => {
-                                // nothing behind me, check: e, n, ne
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                                living_neighbors += self.is_alive_ne(row.0, column.0);
-                            }
-                            x if x == row.1.len() - 1 => {
-                                // nothing in front of me, check: w, nw, n
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                                living_neighbors += self.is_alive_nw(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                            }
-                            _ => {
-                                // in front and behind me, check: e, w, nw, n, ne
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                                living_neighbors += self.is_alive_nw(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                                living_neighbors += self.is_alive_ne(row.0, column.0);
-                            }
-                        }
-                    }
-                    _ => {
-                        // things to the n and s
-                        match column.0 {
-                            0 => {
-                                // nothing behind me, check: e, se, s, n, ne
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_se(row.0, column.0);
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                                living_neighbors += self.is_alive_ne(row.0, column.0);
-                            }
-                            x if x == row.1.len() - 1 => {
-                                // nothing in front of me, check: e, sw, w, nw, n
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                                living_neighbors += self.is_alive_sw(row.0, column.0);
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                                living_neighbors += self.is_alive_nw(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                            }
-                            _ => {
-                                // in front and behind me, check: e, se, s, sw, w, nw, n, ne
-                                living_neighbors += self.is_alive_e(row.0, column.0);
-                                living_neighbors += self.is_alive_se(row.0, column.0);
-                                living_neighbors += self.is_alive_s(row.0, column.0);
-                                living_neighbors += self.is_alive_sw(row.0, column.0);
-                                living_neighbors += self.is_alive_w(row.0, column.0);
-                                living_neighbors += self.is_alive_nw(row.0, column.0);
-                                living_neighbors += self.is_alive_n(row.0, column.0);
-                                living_neighbors += self.is_alive_ne(row.0, column.0);
-                            }
-                        }
-                    }
-                }
+        let height = self.lines.len();
+        let width = self.lines[0].len();
 
-                let health = Self::compute_health(column.1, living_neighbors);
+        for row in 0..height {
+            for col in 0..width {
+                let current = &self.lines[row][col];
+                let living_neighbors = self.count_living_neighbors(row, col);
+                let next = Self::compute_health(current, living_neighbors);
 
-                if column.1.ne(&health) {
-                    changed.push((row.0, column.0, health));
+                if current != &next {
+                    changed.push((row, col, next));
                 }
             }
         }
