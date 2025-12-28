@@ -44,8 +44,7 @@ pub struct Orchestrator {
     configuration: Vec<pattern::PatternType>,
     current_pattern_type: usize,
     last_pattern: Option<usize>,
-    rotated_pattern: Option<pattern::Pattern>, // Current rotated pattern to place
-    rotation_count: usize, // Number of times rotated (0-3, for display only)
+    rotation_count: usize, // For display only (0-3 = 0°, 90°, 180°, 270°)
     simulation_delay: u128,
     grid_multiplier: usize,
 }
@@ -63,7 +62,6 @@ pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) ->
         configuration,
         current_pattern_type: 0,
         last_pattern: None,
-        rotated_pattern: None,
         rotation_count: 0,
         simulation_delay: 50,
         grid_multiplier,
@@ -134,14 +132,11 @@ impl Orchestrator {
 
     fn rotate_last_shape(&mut self) {
         if let Some(index) = self.last_pattern {
-            // Rotate the current pattern (either the rotated one or original)
-            let pattern_to_rotate = self.rotated_pattern.as_ref()
-                .unwrap_or(&self.configuration[self.current_pattern_type].patterns[index]);
+            // Rotate the pattern in the configuration directly
+            let pattern = &mut self.configuration[self.current_pattern_type].patterns[index];
+            *pattern = pattern.rotate_90();
             
-            // Rotate it and store
-            self.rotated_pattern = Some(pattern_to_rotate.rotate_90());
-            
-            // Update rotation count for display (0-3, representing 0°, 90°, 180°, 270°)
+            // Update rotation count for display
             self.rotation_count = (self.rotation_count + 1) % 4;
         }
     }
@@ -179,17 +174,12 @@ impl Orchestrator {
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.last_pattern {
-                    let matrix = if let Some(ref rotated) = self.rotated_pattern {
-                        &rotated.matrix
-                    } else {
-                        &self.configuration[self.current_pattern_type].patterns[index].matrix
-                    };
+                    let matrix = &self.configuration[self.current_pattern_type].patterns[index].matrix;
                     self.grid.shape(grid_position, matrix);
                 }
             }
             Command::CyclePatternType => {
                 self.last_pattern = None;
-                self.rotated_pattern = None;
                 self.rotation_count = 0;
                 match self.current_pattern_type {
                     x if x == self.configuration.len() - 1 => {
@@ -223,10 +213,10 @@ impl Orchestrator {
             Command::PlacePattern(index) => {
                 let patterns = &self.configuration[self.current_pattern_type].patterns;
                 if index < patterns.len() {
+                    if self.last_pattern != Some(index) {
+                        self.rotation_count = 0;
+                    }
                     self.last_pattern = Some(index);
-                    // Reset rotated pattern and rotation count when selecting a new pattern
-                    self.rotated_pattern = None;
-                    self.rotation_count = 0;
                     self.grid.shape(grid_position, &patterns[index].matrix);
                 }
             }
