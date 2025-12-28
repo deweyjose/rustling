@@ -13,19 +13,31 @@ use termion::raw::IntoRawMode;
 // run off the main thread ... read a key and transmit it
 // if ctrl+c or q break
 pub fn grid_input(tx: Sender<Event>) {
-    let mut stdout = MouseTerminal::from(stdout().into_raw_mode().unwrap());
+    let mut stdout = match stdout().into_raw_mode() {
+        Ok(raw_stdout) => MouseTerminal::from(raw_stdout),
+        Err(e) => {
+            eprintln!("Failed to enter raw mode: {}", e);
+            return;
+        }
+    };
 
-    //    let mut stdout = stdout().into_raw_mode().unwrap();
     let stdin = stdin();
     for result in stdin.events() {
-        let event = result.unwrap();
-        tx.send(event.clone()).expect("TODO: panic message");
+        let event = match result {
+            Ok(event) => event,
+            Err(e) => {
+                eprintln!("Error reading input event: {}", e);
+                continue;
+            }
+        };
+        
+        tx.send(event.clone()).expect("Failed to send input event");
 
         match event {
             Event::Key(Ctrl('c')) => break,
             Event::Key(Char('q')) => break,
             _ => {}
         }
-        stdout.flush().unwrap();
+        let _ = stdout.flush(); // Ignore flush errors as they're not critical
     }
 }

@@ -25,21 +25,43 @@ struct Args {
     multiplier: usize,
 }
 
+fn create_default_pattern() -> Vec<PatternType> {
+    vec![PatternType {
+        name: String::from("default"),
+        patterns: vec![Pattern {
+            name: String::from("blinker"),
+            matrix: vec![vec![Alive, Alive, Alive]],
+        }],
+    }]
+}
+
 fn main() {
     let args = Args::parse();
 
-    let configuration: Vec<PatternType> = if let Ok(mut file) = File::open(args.patterns) {
+    let configuration: Vec<PatternType> = if let Ok(mut file) = File::open(&args.patterns) {
         let mut buff = String::new();
-        file.read_to_string(&mut buff).unwrap();
-        serde_json::from_str(&buff).unwrap()
+        match file.read_to_string(&mut buff) {
+            Ok(_) => {
+                match serde_json::from_str(&buff) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to parse patterns file '{}': {}", args.patterns, e);
+                        eprintln!("Using default pattern instead.");
+                        create_default_pattern()
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to read patterns file '{}': {}", args.patterns, e);
+                eprintln!("Using default pattern instead.");
+                create_default_pattern()
+            }
+        }
     } else {
-        vec![PatternType {
-            name: String::from("default"),
-            patterns: vec![Pattern {
-                name: String::from("default"),
-                matrix: vec![vec![Alive, Alive, Alive]],
-            }],
-        }]
+        if args.patterns != "patterns.json" {
+            eprintln!("Warning: Could not open patterns file '{}', using default pattern.", args.patterns);
+        }
+        create_default_pattern()
     };
 
     let mut viewer = grid_viewer::init(configuration, args.multiplier);
