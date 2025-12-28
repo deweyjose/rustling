@@ -42,7 +42,7 @@ pub struct RenderState<'a> {
     pub configuration: &'a [pattern::PatternType],
     pub current_pattern_type: usize,
     pub last_pattern: Option<usize>,
-    pub last_pattern_rotation: &'a std::collections::HashMap<usize, usize>,
+    pub rotation_count: usize,
 }
 
 pub struct Renderer;
@@ -95,19 +95,16 @@ impl Renderer {
         viewport_size: &Size,
         render_state: &RenderState,
     ) {
-        let (last_pattern, last_rotation) = if let Some(last) = render_state.last_pattern {
+        let (last_pattern, rotation_angle) = if let Some(last) = render_state.last_pattern {
             let pattern = render_state.configuration[render_state.current_pattern_type].patterns[last]
                 .name
                 .as_str();
 
-            let rotation = render_state
-                .last_pattern_rotation
-                .get(&last)
-                .unwrap_or(&0);
+            let rotation = render_state.rotation_count * 90;
 
             (pattern, rotation)
         } else {
-            ("none", &0)
+            ("none", 0)
         };
 
         let width = viewport_size.width;
@@ -123,7 +120,7 @@ impl Renderer {
             },
             render_state.configuration[render_state.current_pattern_type].name,
             last_pattern,
-            last_rotation
+            rotation_angle
         );
 
         print!(

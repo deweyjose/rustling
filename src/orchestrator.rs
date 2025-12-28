@@ -1,6 +1,5 @@
 use std::cmp::max;
 use std::cmp::min;
-use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -45,8 +44,8 @@ pub struct Orchestrator {
     configuration: Vec<pattern::PatternType>,
     current_pattern_type: usize,
     last_pattern: Option<usize>,
-    rotated_patterns: HashMap<usize, pattern::Pattern>, // Store rotated copies
-    last_pattern_rotation: HashMap<usize, usize>,
+    rotated_pattern: Option<pattern::Pattern>, // Current rotated pattern to place
+    rotation_count: usize, // Number of times rotated (0-3, for display only)
     simulation_delay: u128,
     grid_multiplier: usize,
 }
@@ -64,8 +63,8 @@ pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) ->
         configuration,
         current_pattern_type: 0,
         last_pattern: None,
-        rotated_patterns: HashMap::new(),
-        last_pattern_rotation: HashMap::new(),
+        rotated_pattern: None,
+        rotation_count: 0,
         simulation_delay: 50,
         grid_multiplier,
     }
@@ -80,7 +79,7 @@ impl Orchestrator {
             configuration: &self.configuration,
             current_pattern_type: self.current_pattern_type,
             last_pattern: self.last_pattern,
-            last_pattern_rotation: &self.last_pattern_rotation,
+            rotation_count: self.rotation_count,
         };
         Renderer::render_all(&self.grid, &self.viewport, &self.viewport_size, &render_state);
         Renderer::set_cursor_pos(&old_pos);
@@ -135,21 +134,15 @@ impl Orchestrator {
 
     fn rotate_last_shape(&mut self) {
         if let Some(index) = self.last_pattern {
-            // Get the base pattern
-            let base_pattern = &self.configuration[self.current_pattern_type].patterns[index];
+            // Rotate the current pattern (either the rotated one or original)
+            let pattern_to_rotate = self.rotated_pattern.as_ref()
+                .unwrap_or(&self.configuration[self.current_pattern_type].patterns[index]);
             
-            // Rotate it to create a new pattern
-            let rotated = base_pattern.rotate_90();
+            // Rotate it and store
+            self.rotated_pattern = Some(pattern_to_rotate.rotate_90());
             
-            // Store the rotated copy
-            self.rotated_patterns.insert(index, rotated.clone());
-            
-            // Update rotation angle
-            let mut rotation = self.last_pattern_rotation.get(&index).unwrap_or(&0) + 90;
-            if rotation >= 360 {
-                rotation = 0;
-            }
-            self.last_pattern_rotation.insert(index, rotation);
+            // Update rotation count for display (0-3, representing 0°, 90°, 180°, 270°)
+            self.rotation_count = (self.rotation_count + 1) % 4;
         }
     }
 
@@ -186,8 +179,7 @@ impl Orchestrator {
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.last_pattern {
-                    // Get the matrix to use (rotated if available, otherwise original)
-                    let matrix = if let Some(rotated) = self.rotated_patterns.get(&index) {
+                    let matrix = if let Some(ref rotated) = self.rotated_pattern {
                         &rotated.matrix
                     } else {
                         &self.configuration[self.current_pattern_type].patterns[index].matrix
@@ -197,8 +189,8 @@ impl Orchestrator {
             }
             Command::CyclePatternType => {
                 self.last_pattern = None;
-                self.rotated_patterns.clear();
-                self.last_pattern_rotation.clear();
+                self.rotated_pattern = None;
+                self.rotation_count = 0;
                 match self.current_pattern_type {
                     x if x == self.configuration.len() - 1 => {
                         self.current_pattern_type = 0;
@@ -232,6 +224,9 @@ impl Orchestrator {
                 let patterns = &self.configuration[self.current_pattern_type].patterns;
                 if index < patterns.len() {
                     self.last_pattern = Some(index);
+                    // Reset rotated pattern and rotation count when selecting a new pattern
+                    self.rotated_pattern = None;
+                    self.rotation_count = 0;
                     self.grid.shape(grid_position, &patterns[index].matrix);
                 }
             }
