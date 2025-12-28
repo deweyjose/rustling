@@ -33,6 +33,60 @@ The installer will create a directory named `rustmaton` with the executable and 
 ```console
 curl --location https://github.com/deweyjose/rustling/releases/download/0.2.4/install.sh | sh
 ```
+
+## Development
+
+### Requirements
+
+- **Rust toolchain**: Rust 1.92.0 or later
+- **Cargo**: Included with Rust (comes with `rustup`)
+
+If you don't have Rust installed, you can install it using [rustup](https://rustup.rs/):
+
+```console
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### Building from Source
+
+Clone the repository and build the project:
+
+```console
+git clone https://github.com/deweyjose/rustling.git
+cd rustling
+cargo build --release
+```
+
+The compiled binary will be located at `target/release/rustmaton`.
+
+### Running from Source
+
+To run the development version directly:
+
+```console
+cargo run
+```
+
+Or run with a custom patterns file:
+
+```console
+cargo run -- path/to/patterns.json
+```
+
+To run the release-optimized version:
+
+```console
+cargo run --release
+```
+
+### Running Tests
+
+Run the test suite:
+
+```console
+cargo test
+```
+
 ## Usage
 
 If [patterns.json](patterns.json) is in the current working directory no arguments need to specified to run rustling.
