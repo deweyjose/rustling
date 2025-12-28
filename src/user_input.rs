@@ -10,9 +10,10 @@ use termion::input::MouseTerminal;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
-// run off the main thread ... read a key and transmit it
-// if ctrl+c or q break
-pub fn grid_input(tx: Sender<Event>) {
+/// Captures user input from the terminal in a separate thread.
+/// Reads keyboard and mouse events and sends them through the provided channel.
+/// Exits on Ctrl+C or 'q' key press.
+pub fn capture_input(tx: Sender<Event>) {
     let mut stdout = match stdout().into_raw_mode() {
         Ok(raw_stdout) => MouseTerminal::from(raw_stdout),
         Err(e) => {
@@ -41,3 +42,4 @@ pub fn grid_input(tx: Sender<Event>) {
         let _ = stdout.flush(); // Ignore flush errors as they're not critical
     }
 }
+

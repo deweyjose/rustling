@@ -1,17 +1,20 @@
 use crate::health::Health::Alive;
 use crate::pattern::Pattern;
 use crate::pattern::PatternType;
-use clap::{arg, Parser};
+use clap::Parser;
 use std::fs::File;
 use std::io::Read;
 
+mod commands;
 mod coordinates;
 mod grid;
-mod grid_input;
-mod grid_viewer;
 mod health;
+mod orchestrator;
 mod pattern;
+mod renderer;
 mod size;
+mod user_input;
+mod viewport;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -64,7 +67,7 @@ fn main() {
         create_default_pattern()
     };
 
-    let mut viewer = grid_viewer::init(configuration, args.multiplier);
+    let mut viewer = orchestrator::init(configuration, args.multiplier);
     viewer.render();
     viewer.run();
 }

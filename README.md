@@ -141,6 +141,105 @@ Example structure
 
 Individual cells can be manually set to `Alive` or `Dead` using the `a` or `d` key. 
 
+## Architecture
+
+The codebase follows a modular architecture with clear separation of concerns:
+
+### Module Overview
+
+- **`main.rs`** - Entry point that parses CLI arguments, loads pattern configuration from JSON, and initializes the Orchestrator
+- **`orchestrator.rs`** - Main application controller that orchestrates the game loop, manages state, and coordinates between input, rendering, and game logic
+- **`grid.rs`** - Core Game of Life engine implementing Conway's rules: cell state management, neighbor counting, and generation computation
+- **`viewport.rs`** - Viewport management for navigating a large grid: maintains offset state, handles coordinate conversion between viewport and grid coordinates, and provides panning methods (prepared for future use)
+- **`renderer.rs`** - Terminal rendering logic: handles all screen output including grid display, header, footer, help screen, and cursor positioning
+- **`commands.rs`** - Input command abstraction: converts raw terminal events into semantic Command enum variants, separating input parsing from command execution
+- **`user_input.rs`** - Low-level input handling: runs in a separate thread, captures terminal events (keyboard and mouse), and sends them through a channel to the main thread
+- **`pattern.rs`** - Pattern data structures and operations: defines Pattern and PatternType structures, provides immutable pattern rotation functionality
+- **`health.rs`** - Cell state enumeration: defines Alive/Dead states with serialization support and display formatting
+- **`coordinates.rs`** - 2D coordinate representation: simple (x, y) position structure
+- **`size.rs`** - Dimension representation: width and height structure for grids and viewports
+
+### Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Entry["Entry Point"]
+        Main[main.rs<br/>CLI Args, Pattern Loading]
+    end
+    
+    subgraph Core["Core Game Logic"]
+        Grid[grid.rs<br/>Game of Life Engine]
+        Health[health.rs<br/>Cell States]
+        Coordinates[coordinates.rs<br/>Position]
+        Size[size.rs<br/>Dimensions]
+    end
+    
+    subgraph Patterns["Pattern Management"]
+        Pattern[pattern.rs<br/>Pattern Data & Rotation]
+    end
+    
+    subgraph View["View & Rendering"]
+        Viewport[viewport.rs<br/>Viewport State &<br/>Coordinate Conversion]
+        Renderer[renderer.rs<br/>Terminal Rendering]
+    end
+    
+    subgraph Control["Application Control"]
+        Orchestrator[orchestrator.rs<br/>Main Controller<br/>Game Loop & State]
+    end
+    
+    subgraph Input["Input Handling"]
+        UserInput[user_input.rs<br/>Event Capture Thread]
+        Commands[commands.rs<br/>Event → Command Mapping]
+    end
+    
+    Main -->|Initializes| Orchestrator
+    Main -->|Loads| Pattern
+    
+    Orchestrator -->|Manages| Grid
+    Orchestrator -->|Uses| Viewport
+    Orchestrator -->|Uses| Renderer
+    Orchestrator -->|Processes| Commands
+    Orchestrator -->|Stores| Pattern
+    
+    Grid -->|Uses| Health
+    Grid -->|Uses| Coordinates
+    Grid -->|Uses| Size
+    
+    Viewport -->|Uses| Coordinates
+    Viewport -->|Uses| Size
+    
+    Renderer -->|Uses| Grid
+    Renderer -->|Uses| Viewport
+    Renderer -->|Uses| Size
+    
+    Commands -->|Receives Events| UserInput
+    
+    Pattern -->|Uses| Health
+    
+    Orchestrator -.->|Event Loop| Commands
+    Orchestrator -.->|Renders| Renderer
+    Orchestrator -.->|Updates| Grid
+```
+
+### Data Flow
+
+1. **Initialization**: `main.rs` parses arguments, loads patterns, creates Orchestrator
+2. **Game Loop**: Orchestrator runs the main loop:
+   - Input thread captures events → Commands converts to actions
+   - Orchestrator executes commands (move cursor, place patterns, etc.)
+   - Grid computes new generation when simulation is running
+   - Renderer draws current state using Viewport for coordinate conversion
+3. **Rendering**: Renderer queries Grid through Viewport to map grid coordinates to screen positions
+4. **Pattern Placement**: User places patterns which are rotated (immutably) and drawn onto Grid
+
+### Design Principles
+
+- **Separation of Concerns**: Each module has a single, well-defined responsibility
+- **Immutability**: Pattern rotation creates new patterns instead of mutating originals
+- **Testability**: Core logic (Grid, Viewport, Commands) can be unit tested independently
+- **Thread Safety**: Input handling runs on a separate thread with channel-based communication
+- **Extensibility**: Command-based input system makes it easy to add new user actions
+
 ## Help
 Press the `h` key to display or hide help. The simulation is paused while help is displayed.
 
