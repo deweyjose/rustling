@@ -8,7 +8,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use termion::event::Event;
-use termion::event::Key::Esc;
+use termion::event::Key::{Char, Esc};
 
 use crate::commands::{Command, CommandHandler};
 use crate::coordinates::Coordinates;
@@ -263,19 +263,19 @@ impl Orchestrator {
 
             let result = rx.recv_timeout(Duration::from_millis(25));
             if let Ok(event) = result {
-                // Handle help mode state
+                    // Handle help mode state
                 if let Event::Key(key) = &event {
                     if !wait_for_state.is_empty() {
                         if wait_for_state.contains(key) {
                             wait_for_state.clear();
-                            if key == &Esc {
+                            if key == &Esc || key == &Char('h') {
                                 in_help_mode = false;
                                 self.render();
                             }
                         }
                         continue;
                     }
-                    if key == &Esc && in_help_mode {
+                    if (key == &Esc || key == &Char('h')) && in_help_mode {
                         in_help_mode = false;
                         self.render();
                         continue;
@@ -288,6 +288,7 @@ impl Orchestrator {
                     Command::ShowHelp => {
                         in_help_mode = true;
                         wait_for_state.push(Esc);
+                        wait_for_state.push(Char('h'));
                     }
                     Command::ExitHelp => {
                         in_help_mode = false;

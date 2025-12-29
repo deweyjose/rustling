@@ -45,7 +45,7 @@ impl CommandHandler {
     pub fn event_to_command(event: &Event, in_help_mode: bool) -> Command {
         if in_help_mode {
             if let Event::Key(key) = event {
-                if *key == Esc {
+                if *key == Esc || *key == Char('h') {
                     return Command::ExitHelp;
                 }
             }
