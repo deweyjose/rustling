@@ -45,7 +45,6 @@ pub struct Orchestrator {
     configuration: Vec<pattern::PatternType>,
     current_pattern_type: usize,
     last_pattern: Option<usize>,
-    rotated_patterns: HashMap<usize, pattern::Pattern>, // Store rotated copies
     last_pattern_rotation: HashMap<usize, usize>,
     simulation_delay: u128,
     grid_multiplier: usize,
@@ -64,7 +63,6 @@ pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) ->
         configuration,
         current_pattern_type: 0,
         last_pattern: None,
-        rotated_patterns: HashMap::new(),
         last_pattern_rotation: HashMap::new(),
         simulation_delay: 50,
         grid_multiplier,
@@ -135,14 +133,10 @@ impl Orchestrator {
 
     fn rotate_last_shape(&mut self) {
         if let Some(index) = self.last_pattern {
-            // Get the base pattern
-            let base_pattern = &self.configuration[self.current_pattern_type].patterns[index];
-            
-            // Rotate it to create a new pattern
-            let rotated = base_pattern.rotate_90();
-            
-            // Store the rotated copy
-            self.rotated_patterns.insert(index, rotated.clone());
+            // Rotate the pattern directly in the configuration
+            let pattern = &mut self.configuration[self.current_pattern_type].patterns[index];
+            let rotated = pattern.rotate_90();
+            *pattern = rotated;
             
             // Update rotation angle
             let mut rotation = self.last_pattern_rotation.get(&index).unwrap_or(&0) + 90;
@@ -186,18 +180,12 @@ impl Orchestrator {
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.last_pattern {
-                    // Get the matrix to use (rotated if available, otherwise original)
-                    let matrix = if let Some(rotated) = self.rotated_patterns.get(&index) {
-                        &rotated.matrix
-                    } else {
-                        &self.configuration[self.current_pattern_type].patterns[index].matrix
-                    };
+                    let matrix = &self.configuration[self.current_pattern_type].patterns[index].matrix;
                     self.grid.shape(grid_position, matrix);
                 }
             }
             Command::CyclePatternType => {
                 self.last_pattern = None;
-                self.rotated_patterns.clear();
                 self.last_pattern_rotation.clear();
                 match self.current_pattern_type {
                     x if x == self.configuration.len() - 1 => {
