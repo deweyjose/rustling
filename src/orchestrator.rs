@@ -173,7 +173,7 @@ impl Orchestrator {
                 self.viewport.update_size(self.viewport_size.clone(), self.grid.get_size());
             }
             Command::PlaceLastPattern => {
-                if let Some(index) = self.last_pattern {
+                if let Some(index) = self.last_pattern {                    
                     let matrix = &self.configuration[self.current_pattern_type].patterns[index].matrix;
                     self.grid.shape(grid_position, matrix);
                 }
