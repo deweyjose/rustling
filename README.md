@@ -89,26 +89,28 @@ cargo test
 
 ## Usage
 
-If [patterns.json](patterns.json) is in the current working directory no arguments need to specified to run rustling.
+If [patterns.json](patterns.json) is in the current working directory, no arguments need to be specified to run rustmaton.
 
 ```console
 % rustmaton
 ```
 
-Or specify a path to [patterns.json](patterns.json).
+Or specify a path to [patterns.json](patterns.json) using the `--patterns` flag:
 ```console
-% rustmaton some/path/patterns.json
+% rustmaton --patterns some/path/patterns.json
 ```
 
-If you built your own patterns file simply supply a path to it instead.
+You can also make the grid larger than the viewport using the `--multiplier` option:
 ```console
-% rustmaton path/customize.json
+% rustmaton --patterns path/customize.json --multiplier 5
 ```
+
+If you built your own patterns file, simply supply a path to it instead.
 
 ### Patterns
 
-The ga me comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`. During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
-Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!).  Use the `h` help key to see what number key a specific pattern is.
+The game comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`. During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
+Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!). Use the `h` help key to see what number key a specific pattern is.
 
 #### patterns.json
 rustmaton loads a predefined set of patterns at startup. 
@@ -130,16 +132,19 @@ Example structure
           [0,1,1],
           [1,1,0],
           [0,1,0]
-        ]
+        ],
+        "rotation_count": 0
       }
     ]
   }
 ]
 ```
 
+Note: The `rotation_count` field is optional (defaults to 0 if not specified). It represents the rotation state of the pattern (0-3 for 0°, 90°, 180°, 270°).
+
 ### Cells
 
-Individual cells can be manually set to `Alive` or `Dead` using the `a` or `d` key. 
+Individual cells can be manually set to `Alive` or `Dead` using the `a` or `d` key (or `Backspace` for dead). 
 
 ## Architecture
 
