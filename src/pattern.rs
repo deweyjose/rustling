@@ -7,9 +7,11 @@ use crate::health::Health;
 pub struct Pattern {
     pub name: String,
     pub matrix: Vec<Vec<Health>>,
+    #[serde(default)]
+    pub rotation_count: usize, // 0-3 = 0°, 90°, 180°, 270°
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct PatternType {
     pub name: String,
     pub patterns: Vec<Pattern>,
@@ -47,6 +49,7 @@ impl Pattern {
         Pattern {
             name: self.name.clone(),
             matrix: rotated,
+            rotation_count: self.rotation_count,
         }
     }
 }
