@@ -88,10 +88,24 @@ impl Orchestrator {
     }
 
     fn render_help(&self) {
+        let rotation_count = self
+            .last_pattern
+            .map(|idx| {
+                self.configuration[self.current_pattern_type].patterns[idx].rotation_count
+            })
+            .unwrap_or(0);
+        let render_state = RenderState {
+            cur_pos: &self.cur_pos,
+            running: self.running,
+            configuration: &self.configuration,
+            current_pattern_type: self.current_pattern_type,
+            last_pattern: self.last_pattern,
+            rotation_count,
+        };
         Renderer::render_help(
             &self.viewport_size,
-            self.grid.get_size().height,
-            &self.configuration,
+            self.grid.get_size(),
+            &render_state,
         );
     }
 

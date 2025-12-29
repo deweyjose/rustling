@@ -136,8 +136,8 @@ impl Renderer {
 
     pub fn render_help(
         viewport_size: &Size,
-        grid_height: usize,
-        configuration: &[pattern::PatternType],
+        grid_size: &Size,
+        render_state: &RenderState,
     ) {
         Self::render_header(viewport_size.width);
 
@@ -155,7 +155,7 @@ impl Renderer {
             current_line += 1;
         }
 
-        for pattern_type in configuration {
+        for pattern_type in render_state.configuration {
             let values: Vec<String> = pattern_type
                 .patterns
                 .iter()
@@ -186,9 +186,14 @@ impl Renderer {
             current_line += 1;
         }
 
-        for line in current_line..grid_height as u16 {
+        // Clear remaining lines up to viewport height (footer is at viewport_height + 1)
+        for line in current_line..(viewport_size.height + 1) as u16 {
             print!("{}{}", cursor::Goto(1, line), clear::CurrentLine);
         }
+        stdout().flush().unwrap();
+
+        // Render footer at the end
+        Self::render_footer(grid_size, viewport_size, render_state);
     }
 
     pub fn render_all(
