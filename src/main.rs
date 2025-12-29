@@ -34,6 +34,7 @@ fn create_default_pattern() -> Vec<PatternType> {
         patterns: vec![Pattern {
             name: String::from("blinker"),
             matrix: vec![vec![Alive, Alive, Alive]],
+            rotation_count: 0,
         }],
     }]
 }

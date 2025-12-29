@@ -1,6 +1,5 @@
 use std::cmp::max;
 use std::cmp::min;
-use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -9,7 +8,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use termion::event::Event;
-use termion::event::Key::Esc;
+use termion::event::Key::{Char, Esc};
 
 use crate::commands::{Command, CommandHandler};
 use crate::coordinates::Coordinates;
@@ -45,7 +44,6 @@ pub struct Orchestrator {
     configuration: Vec<pattern::PatternType>,
     current_pattern_type: usize,
     last_pattern: Option<usize>,
-    last_pattern_rotation: HashMap<usize, usize>,
     simulation_delay: u128,
     grid_multiplier: usize,
 }
@@ -63,7 +61,6 @@ pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) ->
         configuration,
         current_pattern_type: 0,
         last_pattern: None,
-        last_pattern_rotation: HashMap::new(),
         simulation_delay: 50,
         grid_multiplier,
     }
@@ -72,23 +69,43 @@ pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) ->
 impl Orchestrator {
     pub fn render(&mut self) {
         let old_pos = self.cur_pos.clone();
+        let rotation_count = self
+            .last_pattern
+            .map(|idx| {
+                self.configuration[self.current_pattern_type].patterns[idx].rotation_count
+            })
+            .unwrap_or(0);
         let render_state = RenderState {
             cur_pos: &self.cur_pos,
             running: self.running,
             configuration: &self.configuration,
             current_pattern_type: self.current_pattern_type,
             last_pattern: self.last_pattern,
-            last_pattern_rotation: &self.last_pattern_rotation,
+            rotation_count,
         };
         Renderer::render_all(&self.grid, &self.viewport, &self.viewport_size, &render_state);
         Renderer::set_cursor_pos(&old_pos);
     }
 
     fn render_help(&self) {
+        let rotation_count = self
+            .last_pattern
+            .map(|idx| {
+                self.configuration[self.current_pattern_type].patterns[idx].rotation_count
+            })
+            .unwrap_or(0);
+        let render_state = RenderState {
+            cur_pos: &self.cur_pos,
+            running: self.running,
+            configuration: &self.configuration,
+            current_pattern_type: self.current_pattern_type,
+            last_pattern: self.last_pattern,
+            rotation_count,
+        };
         Renderer::render_help(
             &self.viewport_size,
-            self.grid.get_size().height,
-            &self.configuration,
+            self.grid.get_size(),
+            &render_state,
         );
     }
 
@@ -133,17 +150,11 @@ impl Orchestrator {
 
     fn rotate_last_shape(&mut self) {
         if let Some(index) = self.last_pattern {
-            // Rotate the pattern directly in the configuration
             let pattern = &mut self.configuration[self.current_pattern_type].patterns[index];
-            let rotated = pattern.rotate_90();
-            *pattern = rotated;
-            
-            // Update rotation angle
-            let mut rotation = self.last_pattern_rotation.get(&index).unwrap_or(&0) + 90;
-            if rotation >= 360 {
-                rotation = 0;
-            }
-            self.last_pattern_rotation.insert(index, rotation);
+            // Increment rotation count (0, 1, 2, 3, back to 0)
+            pattern.rotation_count = (pattern.rotation_count + 1) % 4;
+            // Rotate the matrix
+            *pattern = pattern.rotate_90();
         }
     }
 
@@ -180,13 +191,13 @@ impl Orchestrator {
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.last_pattern {
+                    // Get the rotated pattern from configuration
                     let matrix = &self.configuration[self.current_pattern_type].patterns[index].matrix;
                     self.grid.shape(grid_position, matrix);
                 }
             }
             Command::CyclePatternType => {
                 self.last_pattern = None;
-                self.last_pattern_rotation.clear();
                 match self.current_pattern_type {
                     x if x == self.configuration.len() - 1 => {
                         self.current_pattern_type = 0;
@@ -266,19 +277,19 @@ impl Orchestrator {
 
             let result = rx.recv_timeout(Duration::from_millis(25));
             if let Ok(event) = result {
-                // Handle help mode state
+                    // Handle help mode state
                 if let Event::Key(key) = &event {
                     if !wait_for_state.is_empty() {
                         if wait_for_state.contains(key) {
                             wait_for_state.clear();
-                            if key == &Esc {
+                            if key == &Esc || key == &Char('h') {
                                 in_help_mode = false;
                                 self.render();
                             }
                         }
                         continue;
                     }
-                    if key == &Esc && in_help_mode {
+                    if (key == &Esc || key == &Char('h')) && in_help_mode {
                         in_help_mode = false;
                         self.render();
                         continue;
@@ -291,6 +302,7 @@ impl Orchestrator {
                     Command::ShowHelp => {
                         in_help_mode = true;
                         wait_for_state.push(Esc);
+                        wait_for_state.push(Char('h'));
                     }
                     Command::ExitHelp => {
                         in_help_mode = false;

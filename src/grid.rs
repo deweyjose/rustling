@@ -67,28 +67,6 @@ impl Grid {
         }
     }
 
-    // =============================
-    // Positions relative a cell (C).
-    //
-    // E  - in front
-    // SE - diagonal front below
-    // S  - below
-    // SW - diagonal behind below
-    // W  - behind
-    // NW - diagonal behind above
-    // N - above
-    // NE - diagonal front above
-    //
-    // =============================
-    //
-    //        NW     N    NE
-    //           \   |   /
-    //         W -   C   - E
-    //           /   |   \
-    //        SW     S    SE
-    //
-    // =============================
-
     fn compute_health(health: &Health, living_neighbors: usize) -> Health {
         match (health, living_neighbors) {
             (Alive, 2) => Alive,
