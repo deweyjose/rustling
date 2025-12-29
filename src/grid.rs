@@ -1,6 +1,6 @@
 use crate::coordinates::Coordinates;
-use crate::health::Health::{Alive, Dead};
 use crate::health::Health;
+use crate::health::Health::{Alive, Dead};
 use crate::size::Size;
 
 #[allow(dead_code)]
@@ -87,9 +87,14 @@ impl Grid {
 
         // Define the 8 directions: NW, N, NE, W, E, SW, S, SE
         let directions = [
-            (-1, -1), (-1, 0), (-1, 1),
-            ( 0, -1),          ( 0, 1),
-            ( 1, -1), ( 1, 0), ( 1, 1),
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
         ];
 
         for (dr, dc) in directions {
@@ -97,9 +102,12 @@ impl Grid {
             let new_col = col as i32 + dc;
 
             // Check bounds and if cell is alive
-            if new_row >= 0 && new_row < height as i32 && 
-               new_col >= 0 && new_col < width as i32 && 
-               Self::is_alive(&self.lines[new_row as usize][new_col as usize]) {
+            if new_row >= 0
+                && new_row < height as i32
+                && new_col >= 0
+                && new_col < width as i32
+                && Self::is_alive(&self.lines[new_row as usize][new_col as usize])
+            {
                 count += 1;
             }
         }
@@ -109,7 +117,7 @@ impl Grid {
 
     pub fn generate(&mut self) {
         let mut changed: Vec<(usize, usize, Health)> = Vec::new();
-        
+
         for (row_idx, row) in self.lines.iter().enumerate() {
             for (col_idx, cell) in row.iter().enumerate() {
                 let living_neighbors = self.count_living_neighbors(row_idx, col_idx);

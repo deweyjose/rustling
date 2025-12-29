@@ -71,9 +71,7 @@ impl Orchestrator {
         let old_pos = self.cur_pos.clone();
         let rotation_count = self
             .last_pattern
-            .map(|idx| {
-                self.configuration[self.current_pattern_type].patterns[idx].rotation_count
-            })
+            .map(|idx| self.configuration[self.current_pattern_type].patterns[idx].rotation_count)
             .unwrap_or(0);
         let render_state = RenderState {
             cur_pos: &self.cur_pos,
@@ -83,16 +81,19 @@ impl Orchestrator {
             last_pattern: self.last_pattern,
             rotation_count,
         };
-        Renderer::render_all(&self.grid, &self.viewport, &self.viewport_size, &render_state);
+        Renderer::render_all(
+            &self.grid,
+            &self.viewport,
+            &self.viewport_size,
+            &render_state,
+        );
         Renderer::set_cursor_pos(&old_pos);
     }
 
     fn render_help(&self) {
         let rotation_count = self
             .last_pattern
-            .map(|idx| {
-                self.configuration[self.current_pattern_type].patterns[idx].rotation_count
-            })
+            .map(|idx| self.configuration[self.current_pattern_type].patterns[idx].rotation_count)
             .unwrap_or(0);
         let render_state = RenderState {
             cur_pos: &self.cur_pos,
@@ -102,11 +103,7 @@ impl Orchestrator {
             last_pattern: self.last_pattern,
             rotation_count,
         };
-        Renderer::render_help(
-            &self.viewport_size,
-            self.grid.get_size(),
-            &render_state,
-        );
+        Renderer::render_help(&self.viewport_size, self.grid.get_size(), &render_state);
     }
 
     fn set_pos(&mut self, x: usize, y: usize) {
@@ -187,12 +184,14 @@ impl Orchestrator {
                 let (grid, size) = init_grid_and_size(self.grid_multiplier);
                 self.grid = grid;
                 self.viewport_size = size;
-                self.viewport.update_size(self.viewport_size.clone(), self.grid.get_size());
+                self.viewport
+                    .update_size(self.viewport_size.clone(), self.grid.get_size());
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.last_pattern {
                     // Get the rotated pattern from configuration
-                    let matrix = &self.configuration[self.current_pattern_type].patterns[index].matrix;
+                    let matrix =
+                        &self.configuration[self.current_pattern_type].patterns[index].matrix;
                     self.grid.shape(grid_position, matrix);
                 }
             }
@@ -277,7 +276,7 @@ impl Orchestrator {
 
             let result = rx.recv_timeout(Duration::from_millis(25));
             if let Ok(event) = result {
-                    // Handle help mode state
+                // Handle help mode state
                 if let Event::Key(key) = &event {
                     if !wait_for_state.is_empty() {
                         if wait_for_state.contains(key) {
@@ -323,4 +322,3 @@ impl Orchestrator {
         }
     }
 }
-

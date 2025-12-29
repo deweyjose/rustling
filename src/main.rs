@@ -45,25 +45,32 @@ fn main() {
     let configuration: Vec<PatternType> = if let Ok(mut file) = File::open(&args.patterns) {
         let mut buff = String::new();
         match file.read_to_string(&mut buff) {
-            Ok(_) => {
-                match serde_json::from_str(&buff) {
-                    Ok(config) => config,
-                    Err(e) => {
-                        eprintln!("Warning: Failed to parse patterns file '{}': {}", args.patterns, e);
-                        eprintln!("Using default pattern instead.");
-                        create_default_pattern()
-                    }
+            Ok(_) => match serde_json::from_str(&buff) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to parse patterns file '{}': {}",
+                        args.patterns, e
+                    );
+                    eprintln!("Using default pattern instead.");
+                    create_default_pattern()
                 }
-            }
+            },
             Err(e) => {
-                eprintln!("Warning: Failed to read patterns file '{}': {}", args.patterns, e);
+                eprintln!(
+                    "Warning: Failed to read patterns file '{}': {}",
+                    args.patterns, e
+                );
                 eprintln!("Using default pattern instead.");
                 create_default_pattern()
             }
         }
     } else {
         if args.patterns != "patterns.json" {
-            eprintln!("Warning: Could not open patterns file '{}', using default pattern.", args.patterns);
+            eprintln!(
+                "Warning: Could not open patterns file '{}', using default pattern.",
+                args.patterns
+            );
         }
         create_default_pattern()
     };

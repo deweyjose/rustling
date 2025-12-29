@@ -15,7 +15,7 @@ impl Viewport {
         } else {
             0
         };
-        
+
         let y_offset = if grid_size.height > viewport_size.height {
             (grid_size.height - viewport_size.height) / 2
         } else {
@@ -40,10 +40,11 @@ impl Viewport {
     /// Convert grid coordinates to viewport coordinates
     #[allow(dead_code)]
     pub fn grid_to_view(&self, grid_coord: Coordinates) -> Option<Coordinates> {
-        if grid_coord.x >= self.x_offset 
+        if grid_coord.x >= self.x_offset
             && grid_coord.x < self.x_offset + self.viewport_size.width
             && grid_coord.y >= self.y_offset
-            && grid_coord.y < self.y_offset + self.viewport_size.height {
+            && grid_coord.y < self.y_offset + self.viewport_size.height
+        {
             Some(Coordinates {
                 x: grid_coord.x - self.x_offset + 1,
                 y: grid_coord.y - self.y_offset + 2,
@@ -111,16 +112,15 @@ impl Viewport {
     pub fn update_size(&mut self, new_size: Size, grid_size: &Size) {
         // Maintain relative position, but ensure we stay within bounds
         self.viewport_size = new_size;
-        
+
         let max_x_offset = grid_size.width.saturating_sub(self.viewport_size.width);
         if self.x_offset > max_x_offset {
             self.x_offset = max_x_offset;
         }
-        
+
         let max_y_offset = grid_size.height.saturating_sub(self.viewport_size.height);
         if self.y_offset > max_y_offset {
             self.y_offset = max_y_offset;
         }
     }
 }
-

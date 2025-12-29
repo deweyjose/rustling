@@ -31,7 +31,7 @@ pub fn capture_input(tx: Sender<Event>) {
                 continue;
             }
         };
-        
+
         tx.send(event.clone()).expect("Failed to send input event");
 
         match event {
@@ -42,4 +42,3 @@ pub fn capture_input(tx: Sender<Event>) {
         let _ = stdout.flush(); // Ignore flush errors as they're not critical
     }
 }
-

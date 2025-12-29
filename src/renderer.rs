@@ -90,13 +90,10 @@ impl Renderer {
         }
     }
 
-    pub fn render_footer(
-        grid_size: &Size,
-        viewport_size: &Size,
-        render_state: &RenderState,
-    ) {
+    pub fn render_footer(grid_size: &Size, viewport_size: &Size, render_state: &RenderState) {
         let (last_pattern, rotation_angle) = if let Some(last) = render_state.last_pattern {
-            let pattern = render_state.configuration[render_state.current_pattern_type].patterns[last]
+            let pattern = render_state.configuration[render_state.current_pattern_type].patterns
+                [last]
                 .name
                 .as_str();
 
@@ -134,11 +131,7 @@ impl Renderer {
         stdout().flush().unwrap();
     }
 
-    pub fn render_help(
-        viewport_size: &Size,
-        grid_size: &Size,
-        render_state: &RenderState,
-    ) {
+    pub fn render_help(viewport_size: &Size, grid_size: &Size, render_state: &RenderState) {
         Self::render_header(viewport_size.width);
 
         let width = viewport_size.width;
@@ -212,4 +205,3 @@ impl Renderer {
         stdout().flush().unwrap();
     }
 }
-
