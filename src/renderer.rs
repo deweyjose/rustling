@@ -21,9 +21,9 @@ impl Renderer {
         gallery_width: u16,
     ) -> RenderOutcome {
         let layout = Layout::vertical([
-            Constraint::Length(1), // Header
+            Constraint::Length(3), // Header (border + content + border)
             Constraint::Fill(1),   // Body
-            Constraint::Length(1), // Footer
+            Constraint::Length(3), // Footer
         ])
         .split(frame.area());
 
