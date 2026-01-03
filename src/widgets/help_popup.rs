@@ -25,6 +25,7 @@ ctrl+c  - quit
 "#;
 
 pub struct HelpPopup<'a> {
+    #[allow(dead_code)]
     app: &'a App,
     theme: &'a Theme,
 }

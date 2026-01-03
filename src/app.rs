@@ -8,6 +8,7 @@ use crate::viewport::Viewport;
 pub enum AppMode {
     Normal,
     Help,
+    #[allow(dead_code)]
     PatternGallery,
 }
 

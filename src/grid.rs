@@ -37,10 +37,6 @@ impl Grid {
         &self.size
     }
 
-    pub fn get_row(&self, row: usize) -> &Vec<Health> {
-        &self.lines[row]
-    }
-
     pub fn get_cell(&self, position: Coordinates) -> Option<Health> {
         if position.y < self.size.height && position.x < self.size.width {
             Some(self.lines[position.y][position.x])
