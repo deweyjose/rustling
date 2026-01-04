@@ -44,7 +44,6 @@ pub struct App {
     pub current_pattern_type: usize,
     pub last_pattern: Option<usize>,
     pub simulation_delay: u128,
-    pub grid_multiplier: usize,
     pub mode: AppMode,
     pub gallery_cursor: GalleryCursor,
 }

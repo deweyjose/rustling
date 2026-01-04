@@ -34,17 +34,35 @@ use crate::widgets::pattern_gallery::compute_visible_nodes;
 
 const PATTERN_GALLERY_WIDTH: u16 = 24;
 
-fn init_grid_and_size(grid_multiplier: usize) -> io::Result<(Grid, Size)> {
-    let (width, height) = terminal::size()?;
+/// Configuration for grid initialization
+pub struct GridConfig {
+    pub multiplier: usize,
+    pub max_width: Option<usize>,
+    pub max_height: Option<usize>,
+}
+
+fn init_grid_and_size(config: &GridConfig) -> io::Result<(Grid, Size)> {
+    let (term_width, term_height) = terminal::size()?;
+
+    // Calculate grid dimensions: terminal * multiplier, capped by max if provided
+    let mut grid_width = term_width as usize * config.multiplier;
+    let mut grid_height = term_height as usize * config.multiplier;
+
+    if let Some(max_w) = config.max_width {
+        grid_width = grid_width.min(max_w);
+    }
+    if let Some(max_h) = config.max_height {
+        grid_height = grid_height.min(max_h);
+    }
 
     let grid = Grid::new(Size {
-        width: width as usize * grid_multiplier,
-        height: height as usize * grid_multiplier,
+        width: grid_width,
+        height: grid_height,
     });
 
     let size = Size {
-        width: width as usize,
-        height: height as usize,
+        width: term_width as usize,
+        height: term_height as usize,
     };
 
     Ok((grid, size))
@@ -54,14 +72,15 @@ pub struct Orchestrator {
     app: App,
     terminal: Terminal<CrosstermBackend<Stdout>>,
     theme: Theme,
+    grid_config: GridConfig,
     last_canvas_area: Option<Rect>,
     last_tick: Instant,
 }
 
 impl Orchestrator {
-    pub fn init(configuration: Vec<PatternType>, grid_multiplier: usize) -> io::Result<Self> {
+    pub fn init(configuration: Vec<PatternType>, grid_config: GridConfig) -> io::Result<Self> {
         let terminal = setup_terminal()?;
-        let (grid, size) = init_grid_and_size(grid_multiplier)?;
+        let (grid, size) = init_grid_and_size(&grid_config)?;
         let viewport = Viewport::new(grid.get_size(), size.clone());
         let num_types = configuration.len();
 
@@ -75,7 +94,6 @@ impl Orchestrator {
             current_pattern_type: 0,
             last_pattern: None,
             simulation_delay: 50,
-            grid_multiplier,
             mode: AppMode::Normal,
             gallery_cursor: GalleryCursor::new(num_types),
         };
@@ -84,6 +102,7 @@ impl Orchestrator {
             app,
             terminal,
             theme: Theme::default(),
+            grid_config,
             last_canvas_area: None,
             last_tick: Instant::now(),
         })
@@ -152,33 +171,53 @@ impl Orchestrator {
     }
 
     fn center_cursor(&mut self) {
-        if self.app.viewport_size.width > 0 {
-            self.app.cursor.x = (self.app.viewport_size.width - 1) / 2;
-        } else {
-            self.app.cursor.x = 0;
-        }
-        if self.app.viewport_size.height > 0 {
-            self.app.cursor.y = (self.app.viewport_size.height - 1) / 2;
-        } else {
-            self.app.cursor.y = 0;
-        }
+        let max_x = self.max_cursor_x();
+        let max_y = self.max_cursor_y();
+
+        self.app.cursor.x = max_x / 2;
+        self.app.cursor.y = max_y / 2;
     }
 
     fn clamp_cursor(&mut self) {
-        if self.app.cursor.x >= self.app.viewport_size.width {
-            if self.app.viewport_size.width > 0 {
-                self.app.cursor.x = self.app.viewport_size.width - 1;
-            } else {
-                self.app.cursor.x = 0;
-            }
+        let max_x = self.max_cursor_x();
+        let max_y = self.max_cursor_y();
+
+        if self.app.cursor.x > max_x {
+            self.app.cursor.x = max_x;
         }
-        if self.app.cursor.y >= self.app.viewport_size.height {
-            if self.app.viewport_size.height > 0 {
-                self.app.cursor.y = self.app.viewport_size.height - 1;
-            } else {
-                self.app.cursor.y = 0;
-            }
+        if self.app.cursor.y > max_y {
+            self.app.cursor.y = max_y;
         }
+    }
+
+    /// Maximum valid cursor X position (considering both viewport and grid bounds)
+    fn max_cursor_x(&self) -> usize {
+        let grid_limit = self
+            .app
+            .grid
+            .get_size()
+            .width
+            .saturating_sub(self.app.viewport.x_offset());
+        self.app
+            .viewport_size
+            .width
+            .min(grid_limit)
+            .saturating_sub(1)
+    }
+
+    /// Maximum valid cursor Y position (considering both viewport and grid bounds)
+    fn max_cursor_y(&self) -> usize {
+        let grid_limit = self
+            .app
+            .grid
+            .get_size()
+            .height
+            .saturating_sub(self.app.viewport.y_offset());
+        self.app
+            .viewport_size
+            .height
+            .min(grid_limit)
+            .saturating_sub(1)
     }
 
     fn move_cur_left(&mut self) {
@@ -198,18 +237,20 @@ impl Orchestrator {
     }
 
     fn move_cur_right(&mut self) {
-        if self.app.cursor.x + 1 < self.app.viewport_size.width {
+        let max_x = self.max_cursor_x();
+        if self.app.cursor.x < max_x {
             self.app.cursor.x += 1;
         }
     }
 
     fn move_cur_right_by(&mut self, amount: usize) {
-        let max_x = self.app.viewport_size.width.saturating_sub(1);
+        let max_x = self.max_cursor_x();
         self.app.cursor.x = (self.app.cursor.x + amount).min(max_x);
     }
 
     fn move_cur_down(&mut self) {
-        if self.app.cursor.y + 1 < self.app.viewport_size.height {
+        let max_y = self.max_cursor_y();
+        if self.app.cursor.y < max_y {
             self.app.cursor.y += 1;
         }
     }
@@ -240,8 +281,8 @@ impl Orchestrator {
             {
                 let view_x = (mouse_x - area.x) as usize;
                 let view_y = (mouse_y - area.y) as usize;
-                self.app.cursor.x = view_x.min(self.app.viewport_size.width.saturating_sub(1));
-                self.app.cursor.y = view_y.min(self.app.viewport_size.height.saturating_sub(1));
+                self.app.cursor.x = view_x.min(self.max_cursor_x());
+                self.app.cursor.y = view_y.min(self.max_cursor_y());
             }
         }
     }
@@ -365,7 +406,7 @@ impl Orchestrator {
                 return Ok(CommandOutcome::Handled);
             }
             Command::ClearGrid => {
-                let (grid, size) = init_grid_and_size(self.app.grid_multiplier)?;
+                let (grid, size) = init_grid_and_size(&self.grid_config)?;
                 self.app.grid = grid;
                 self.app.viewport_size = size;
                 self.app
@@ -385,9 +426,7 @@ impl Orchestrator {
             Command::MoveCursorRightBy(amount) => self.move_cur_right_by(amount),
             Command::MoveCursorToStartOfLine => self.app.cursor.x = 0,
             Command::MoveCursorToEndOfLine => {
-                if self.app.viewport_size.width > 0 {
-                    self.app.cursor.x = self.app.viewport_size.width - 1;
-                }
+                self.app.cursor.x = self.max_cursor_x();
             }
             Command::ToggleCellAlive => {
                 self.app.grid.resurrect(grid_position);

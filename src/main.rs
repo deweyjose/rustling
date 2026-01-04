@@ -27,9 +27,17 @@ struct Args {
     #[arg(short, long, default_value = "patterns.json")]
     patterns: String,
 
-    /// make the grid N times bigger than the view port
-    #[arg(short, long, default_value_t = 3)]
-    multiplier: usize,
+    /// make the grid N times bigger than the viewport
+    #[arg(short = 'm', long, default_value_t = 3)]
+    grid_multiplier: usize,
+
+    /// maximum grid width (caps the multiplier calculation)
+    #[arg(long)]
+    grid_max_width: Option<usize>,
+
+    /// maximum grid height (caps the multiplier calculation)
+    #[arg(long)]
+    grid_max_height: Option<usize>,
 }
 
 fn create_default_pattern() -> Vec<PatternType> {
@@ -94,7 +102,13 @@ fn main() -> io::Result<()> {
         create_default_pattern()
     };
 
-    let mut viewer = orchestrator::Orchestrator::init(configuration, args.multiplier)?;
+    let grid_config = orchestrator::GridConfig {
+        multiplier: args.grid_multiplier,
+        max_width: args.grid_max_width,
+        max_height: args.grid_max_height,
+    };
+
+    let mut viewer = orchestrator::Orchestrator::init(configuration, grid_config)?;
     viewer.run()?;
     Ok(())
 }

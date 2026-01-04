@@ -7,6 +7,7 @@ pub struct Theme {
     pub cell_dead: Style,
     pub cursor: Style,
     pub border: Style,
+    pub grid_boundary: Style,
     pub gallery_focus: Style,
 }
 
@@ -19,6 +20,7 @@ impl Default for Theme {
             cell_dead: Style::default(),
             cursor: Style::default().bg(Color::DarkGray),
             border: Style::default().fg(Color::Gray),
+            grid_boundary: Style::default().fg(Color::DarkGray),
             gallery_focus: Style::default()
                 .bg(Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
