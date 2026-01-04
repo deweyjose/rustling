@@ -242,6 +242,25 @@ cargo test
 cargo build --release
 ```
 
+### Updating the README GIF
+
+When gameplay changes, update the demo GIF in `docs/img/gol.gif`:
+
+```console
+# Install tools
+brew install asciinema agg
+
+# Record gameplay session
+asciinema rec demo.cast
+
+# Run the game and demonstrate features
+cargo run --release -- --grid-multiplier 2
+# (play the game, then exit)
+
+# Convert to optimized GIF
+agg --speed 10 demo.cast docs/img/gol.gif
+```
+
 ## License
 
 MIT OR Apache-2.0
