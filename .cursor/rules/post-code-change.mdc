@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+
+##This project is a Rust based. We use cargo. You must make sure:
+
+- clippy succeeds
+- fmt succeeds
