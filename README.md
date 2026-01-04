@@ -26,7 +26,7 @@ A terminal-based Conway's Game of Life editor built with Rust, [ratatui](https:/
 ### Pre-built Binary
 
 ```console
-curl --location https://github.com/deweyjose/rustling/releases/download/0.2.5/install.sh | sh
+curl --location https://github.com/deweyjose/rustling/releases/download/0.3.0/install.sh | sh
 ```
 
 ### Building from Source
