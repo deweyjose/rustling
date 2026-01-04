@@ -11,6 +11,7 @@ b       - move cursor to the beginning of the current line
 c       - clear the screen
 d       - toggle cursor point dead
 e       - move cursor to the end of the current line
+g       - enter pattern gallery mode
 h       - display help, or exit help if currently rendered
 l       - print the previous pattern again
 p       - cycle through the pattern classes defined in patterns.json
@@ -22,6 +23,13 @@ s       - toggle the simulation run loop
 -       - slow down the simulation
 [esc]   - exit help
 ctrl+c  - quit
+
+# gallery mode (press 'g' to enter):
+↑/↓     - navigate up/down in pattern tree
+←       - collapse type or go to parent
+→       - expand type or enter children
+[enter] - select pattern (sets as last pattern)
+g/[esc] - exit gallery mode
 "#;
 
 pub struct HelpPopup<'a> {

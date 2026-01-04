@@ -10,7 +10,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::prelude::Rect;
 use ratatui::Terminal;
 
-use crate::app::{App, AppMode};
+use crate::app::{App, AppMode, GalleryCursor};
 use crate::commands::{Command, CommandHandler};
 use crate::coordinates::Coordinates;
 use crate::grid::Grid;
@@ -20,6 +20,7 @@ use crate::size::Size;
 use crate::theme::Theme;
 use crate::user_input;
 use crate::viewport::Viewport;
+use crate::widgets::pattern_gallery::compute_visible_nodes;
 
 const PATTERN_GALLERY_WIDTH: u16 = 24;
 
@@ -52,6 +53,7 @@ impl Orchestrator {
         let terminal = setup_terminal()?;
         let (grid, size) = init_grid_and_size(grid_multiplier)?;
         let viewport = Viewport::new(grid.get_size(), size.clone());
+        let num_types = configuration.len();
 
         let app = App {
             grid,
@@ -65,6 +67,7 @@ impl Orchestrator {
             simulation_delay: 50,
             grid_multiplier,
             mode: AppMode::Normal,
+            gallery_cursor: GalleryCursor::new(num_types),
         };
 
         Ok(Self {
@@ -84,6 +87,7 @@ impl Orchestrator {
         loop {
             let elapsed = self.last_tick.elapsed().as_millis() as u128;
             if self.app.mode != AppMode::Help
+                && self.app.mode != AppMode::PatternGallery
                 && self.app.running
                 && elapsed > self.app.simulation_delay
             {
@@ -93,8 +97,7 @@ impl Orchestrator {
             }
 
             if let Some(event) = user_input::poll_event(Duration::from_millis(25))? {
-                let command =
-                    CommandHandler::event_to_command(&event, self.app.mode == AppMode::Help);
+                let command = CommandHandler::event_to_command(&event, self.app.mode);
                 if self.handle_command(command)? {
                     break;
                 }
@@ -109,11 +112,16 @@ impl Orchestrator {
         let mut canvas_area: Option<Rect> = None;
         let app = &self.app;
         let theme = &self.theme;
+        let mut list_state = self.app.gallery_cursor.list_state.clone();
 
         self.terminal.draw(|frame| {
-            let outcome = Renderer::render(frame, app, theme, PATTERN_GALLERY_WIDTH);
+            let outcome =
+                Renderer::render(frame, app, theme, PATTERN_GALLERY_WIDTH, &mut list_state);
             canvas_area = Some(outcome.canvas_area);
         })?;
+
+        // Update the list state after render (for scroll position)
+        self.app.gallery_cursor.list_state = list_state;
 
         if let Some(area) = canvas_area {
             self.app.viewport_size = Size {
@@ -224,6 +232,112 @@ impl Orchestrator {
         }
     }
 
+    // Gallery navigation helpers
+    fn gallery_move_up(&mut self) {
+        let nodes = compute_visible_nodes(&self.app);
+        if nodes.is_empty() {
+            return;
+        }
+
+        // Find current position in the flat list
+        let current_idx = nodes.iter().position(|n| {
+            n.type_idx == self.app.gallery_cursor.pattern_type_idx
+                && n.pattern_idx == self.app.gallery_cursor.pattern_idx
+        });
+
+        if let Some(idx) = current_idx {
+            if idx > 0 {
+                let prev = &nodes[idx - 1];
+                self.app.gallery_cursor.pattern_type_idx = prev.type_idx;
+                self.app.gallery_cursor.pattern_idx = prev.pattern_idx;
+            }
+        }
+    }
+
+    fn gallery_move_down(&mut self) {
+        let nodes = compute_visible_nodes(&self.app);
+        if nodes.is_empty() {
+            return;
+        }
+
+        let current_idx = nodes.iter().position(|n| {
+            n.type_idx == self.app.gallery_cursor.pattern_type_idx
+                && n.pattern_idx == self.app.gallery_cursor.pattern_idx
+        });
+
+        if let Some(idx) = current_idx {
+            if idx + 1 < nodes.len() {
+                let next = &nodes[idx + 1];
+                self.app.gallery_cursor.pattern_type_idx = next.type_idx;
+                self.app.gallery_cursor.pattern_idx = next.pattern_idx;
+            }
+        }
+    }
+
+    fn gallery_expand(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+        let type_idx = cursor.pattern_type_idx;
+
+        if cursor.pattern_idx.is_none() {
+            // On a type node
+            let already_expanded = self
+                .app
+                .gallery_cursor
+                .expanded_types
+                .get(type_idx)
+                .copied()
+                .unwrap_or(false);
+
+            if !already_expanded {
+                // Expand the type
+                if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                    self.app.gallery_cursor.expanded_types[type_idx] = true;
+                }
+            } else {
+                // Already expanded, move into first child
+                if let Some(pt) = self.app.configuration.get(type_idx) {
+                    if !pt.patterns.is_empty() {
+                        self.app.gallery_cursor.pattern_idx = Some(0);
+                    }
+                }
+            }
+        }
+    }
+
+    fn gallery_collapse(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+        let type_idx = cursor.pattern_type_idx;
+
+        if cursor.pattern_idx.is_some() {
+            // On a pattern, go back to parent type
+            self.app.gallery_cursor.pattern_idx = None;
+        } else {
+            // On a type, collapse it
+            if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                self.app.gallery_cursor.expanded_types[type_idx] = false;
+            }
+        }
+    }
+
+    fn gallery_select(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+
+        if let Some(pat_idx) = cursor.pattern_idx {
+            // Select pattern
+            self.app.current_pattern_type = cursor.pattern_type_idx;
+            self.app.last_pattern = Some(pat_idx);
+            // Optionally exit gallery mode after selection
+            self.app.mode = AppMode::Normal;
+        } else {
+            // On a type node, toggle expand/collapse
+            let type_idx = cursor.pattern_type_idx;
+            if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                self.app.gallery_cursor.expanded_types[type_idx] =
+                    !self.app.gallery_cursor.expanded_types[type_idx];
+            }
+        }
+    }
+
     fn handle_command(&mut self, command: Command) -> io::Result<bool> {
         let grid_position = self.app.grid_cursor();
         let mut should_quit = false;
@@ -323,6 +437,28 @@ impl Orchestrator {
             }
             Command::SetCursorPosition(x, y) => {
                 self.set_cursor_from_screen(x, y);
+            }
+            // Gallery commands
+            Command::EnterGalleryMode => {
+                self.app.mode = AppMode::PatternGallery;
+            }
+            Command::ExitGalleryMode => {
+                self.app.mode = AppMode::Normal;
+            }
+            Command::GalleryUp => {
+                self.gallery_move_up();
+            }
+            Command::GalleryDown => {
+                self.gallery_move_down();
+            }
+            Command::GalleryExpand => {
+                self.gallery_expand();
+            }
+            Command::GalleryCollapse => {
+                self.gallery_collapse();
+            }
+            Command::GallerySelect => {
+                self.gallery_select();
             }
             Command::NoOp => {}
         }

@@ -1,4 +1,5 @@
 use ratatui::prelude::*;
+use ratatui::widgets::ListState;
 
 use crate::app::{App, AppMode};
 use crate::theme::Theme;
@@ -19,6 +20,7 @@ impl Renderer {
         app: &App,
         theme: &Theme,
         gallery_width: u16,
+        gallery_list_state: &mut ListState,
     ) -> RenderOutcome {
         let layout = Layout::vertical([
             Constraint::Length(3), // Header (border + content + border)
@@ -37,7 +39,11 @@ impl Renderer {
 
         frame.render_widget(HeaderBar::new(app, theme), layout[0]);
         frame.render_widget(GameCanvas::new(app, theme), canvas_area);
-        frame.render_widget(PatternGallery::new(app, theme), body_layout[1]);
+        frame.render_stateful_widget(
+            PatternGallery::new(app, theme),
+            body_layout[1],
+            gallery_list_state,
+        );
         frame.render_widget(FooterBar::new(app, theme), layout[2]);
 
         if app.mode == AppMode::Help {

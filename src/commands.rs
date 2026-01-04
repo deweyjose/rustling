@@ -7,6 +7,8 @@ use crossterm::event::MouseButton;
 use crossterm::event::MouseEvent;
 use crossterm::event::MouseEventKind;
 
+use crate::app::AppMode;
+
 #[derive(Debug, Clone)]
 pub enum Command {
     Quit,
@@ -32,25 +34,63 @@ pub enum Command {
     ShowHelp,
     ExitHelp,
     SetCursorPosition(usize, usize),
+    // Gallery commands
+    EnterGalleryMode,
+    ExitGalleryMode,
+    GalleryUp,
+    GalleryDown,
+    GalleryExpand,
+    GalleryCollapse,
+    GallerySelect,
     NoOp,
 }
 
 pub struct CommandHandler;
 
 impl CommandHandler {
-    /// Convert a crossterm event into a command
-    pub fn event_to_command(event: &Event, in_help_mode: bool) -> Command {
-        if in_help_mode {
-            if let Event::Key(key) = event {
-                if (key.code == KeyCode::Esc || key.code == KeyCode::Char('h'))
-                    && key.kind == KeyEventKind::Press
-                {
-                    return Command::ExitHelp;
-                }
-            }
-            return Command::NoOp;
+    /// Convert a crossterm event into a command based on current mode
+    pub fn event_to_command(event: &Event, mode: AppMode) -> Command {
+        match mode {
+            AppMode::Help => Self::help_event_to_command(event),
+            AppMode::PatternGallery => Self::gallery_event_to_command(event),
+            AppMode::Normal => Self::normal_event_to_command(event),
         }
+    }
 
+    fn help_event_to_command(event: &Event) -> Command {
+        if let Event::Key(key) = event {
+            if (key.code == KeyCode::Esc || key.code == KeyCode::Char('h'))
+                && key.kind == KeyEventKind::Press
+            {
+                return Command::ExitHelp;
+            }
+        }
+        Command::NoOp
+    }
+
+    fn gallery_event_to_command(event: &Event) -> Command {
+        if let Event::Key(key) = event {
+            if key.kind != KeyEventKind::Press {
+                return Command::NoOp;
+            }
+            return match key.code {
+                KeyCode::Char('g') | KeyCode::Esc => Command::ExitGalleryMode,
+                KeyCode::Up => Command::GalleryUp,
+                KeyCode::Down => Command::GalleryDown,
+                KeyCode::Left => Command::GalleryCollapse,
+                KeyCode::Right => Command::GalleryExpand,
+                KeyCode::Enter => Command::GallerySelect,
+                KeyCode::Char('q') => Command::Quit,
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    Command::Quit
+                }
+                _ => Command::NoOp,
+            };
+        }
+        Command::NoOp
+    }
+
+    fn normal_event_to_command(event: &Event) -> Command {
         match event {
             Event::Key(key) => Self::key_to_command(key),
             Event::Mouse(mouse) => Self::mouse_to_command(mouse),
@@ -87,6 +127,7 @@ impl CommandHandler {
             KeyCode::Char('c') => Command::ClearGrid,
             KeyCode::Char('d') => Command::ToggleCellDead,
             KeyCode::Char('e') => Command::MoveCursorToEndOfLine,
+            KeyCode::Char('g') => Command::EnterGalleryMode,
             KeyCode::Char('h') => Command::ShowHelp,
             KeyCode::Char('l') => Command::PlaceLastPattern,
             KeyCode::Char('p') => Command::CyclePatternType,

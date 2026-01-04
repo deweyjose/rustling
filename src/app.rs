@@ -1,3 +1,5 @@
+use ratatui::widgets::ListState;
+
 use crate::coordinates::Coordinates;
 use crate::grid::Grid;
 use crate::pattern::PatternType;
@@ -8,8 +10,28 @@ use crate::viewport::Viewport;
 pub enum AppMode {
     Normal,
     Help,
-    #[allow(dead_code)]
     PatternGallery,
+}
+
+/// Tracks the gallery navigation state
+pub struct GalleryCursor {
+    pub pattern_type_idx: usize,
+    pub pattern_idx: Option<usize>,
+    pub expanded_types: Vec<bool>,
+    pub list_state: ListState,
+}
+
+impl GalleryCursor {
+    pub fn new(num_types: usize) -> Self {
+        let mut list_state = ListState::default();
+        list_state.select(Some(0));
+        Self {
+            pattern_type_idx: 0,
+            pattern_idx: None,
+            expanded_types: vec![true; num_types],
+            list_state,
+        }
+    }
 }
 
 pub struct App {
@@ -24,6 +46,7 @@ pub struct App {
     pub simulation_delay: u128,
     pub grid_multiplier: usize,
     pub mode: AppMode,
+    pub gallery_cursor: GalleryCursor,
 }
 
 impl App {
