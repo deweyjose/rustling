@@ -38,21 +38,29 @@ impl Grid {
     }
 
     pub fn get_cell(&self, position: Coordinates) -> Option<Health> {
-        if position.y < self.size.height && position.x < self.size.width {
+        if self.is_valid_position(&position) {
             Some(self.lines[position.y][position.x])
         } else {
             None
         }
     }
 
+    fn is_valid_position(&self, position: &Coordinates) -> bool {
+        position.y < self.size.height && position.x < self.size.width
+    }
+
     // resurrect a single cell
     pub fn resurrect(&mut self, position: Coordinates) {
-        self.lines[position.y][position.x] = Alive;
+        if self.is_valid_position(&position) {
+            self.lines[position.y][position.x] = Alive;
+        }
     }
 
     // kill a single cell
     pub fn kill(&mut self, position: Coordinates) {
-        self.lines[position.y][position.x] = Dead;
+        if self.is_valid_position(&position) {
+            self.lines[position.y][position.x] = Dead;
+        }
     }
 
     pub fn shape(&mut self, position: Coordinates, shape: &[Vec<Health>]) {
