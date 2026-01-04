@@ -5,7 +5,7 @@ use crate::health::Health;
 use crate::theme::Theme;
 
 const DEAD_SYMBOL: &str = " ";
-const ALIVE_SYMBOL: &str = "@";
+const ALIVE_SYMBOL: &str = "🚀";
 
 pub struct GameCanvas<'a> {
     app: &'a App,
