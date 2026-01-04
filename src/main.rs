@@ -3,8 +3,10 @@ use crate::pattern::Pattern;
 use crate::pattern::PatternType;
 use clap::Parser;
 use std::fs::File;
+use std::io;
 use std::io::Read;
 
+mod app;
 mod commands;
 mod coordinates;
 mod grid;
@@ -13,8 +15,10 @@ mod orchestrator;
 mod pattern;
 mod renderer;
 mod size;
+mod theme;
 mod user_input;
 mod viewport;
+mod widgets;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -39,7 +43,22 @@ fn create_default_pattern() -> Vec<PatternType> {
     }]
 }
 
-fn main() {
+fn install_panic_hook() {
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = crossterm::terminal::disable_raw_mode();
+        let mut stdout = std::io::stdout();
+        let _ = crossterm::execute!(
+            stdout,
+            crossterm::event::DisableMouseCapture,
+            crossterm::terminal::LeaveAlternateScreen
+        );
+        original_hook(panic_info);
+    }));
+}
+
+fn main() -> io::Result<()> {
+    install_panic_hook();
     let args = Args::parse();
 
     let configuration: Vec<PatternType> = if let Ok(mut file) = File::open(&args.patterns) {
@@ -75,7 +94,7 @@ fn main() {
         create_default_pattern()
     };
 
-    let mut viewer = orchestrator::init(configuration, args.multiplier);
-    viewer.render();
-    viewer.run();
+    let mut viewer = orchestrator::Orchestrator::init(configuration, args.multiplier)?;
+    viewer.run()?;
+    Ok(())
 }

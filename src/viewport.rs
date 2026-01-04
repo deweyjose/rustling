@@ -29,11 +29,11 @@ impl Viewport {
         }
     }
 
-    /// Convert viewport coordinates to grid coordinates
+    /// Convert viewport coordinates to grid coordinates (0-based)
     pub fn view_to_grid(&self, view_coord: Coordinates) -> Coordinates {
         Coordinates {
-            x: self.x_offset + view_coord.x.saturating_sub(1),
-            y: self.y_offset + view_coord.y.saturating_sub(2),
+            x: self.x_offset + view_coord.x,
+            y: self.y_offset + view_coord.y,
         }
     }
 
@@ -46,8 +46,8 @@ impl Viewport {
             && grid_coord.y < self.y_offset + self.viewport_size.height
         {
             Some(Coordinates {
-                x: grid_coord.x - self.x_offset + 1,
-                y: grid_coord.y - self.y_offset + 2,
+                x: grid_coord.x - self.x_offset,
+                y: grid_coord.y - self.y_offset,
             })
         } else {
             None
