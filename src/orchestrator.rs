@@ -114,7 +114,7 @@ impl Orchestrator {
         self.render()?;
 
         loop {
-            let elapsed = self.last_tick.elapsed().as_millis() as u128;
+            let elapsed = self.last_tick.elapsed().as_millis();
             if self.app.mode != AppMode::Help
                 && self.app.mode != AppMode::PatternGallery
                 && self.app.running
