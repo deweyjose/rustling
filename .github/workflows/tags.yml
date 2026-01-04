@@ -5,7 +5,7 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["Build, Test, Lint, Clippy"]
+    workflows: ["Build"]
     branches:
       - "main"
     types:
