@@ -11,6 +11,16 @@ use ratatui::prelude::Rect;
 use ratatui::Terminal;
 
 use crate::app::{App, AppMode, GalleryCursor};
+
+/// Describes what the run loop should do after handling a command
+pub enum CommandOutcome {
+    /// Exit the application
+    Quit,
+    /// Clamp cursor then render (standard flow for most commands)
+    Render,
+    /// Command already handled rendering and clamping (e.g., resize)
+    Handled,
+}
 use crate::commands::{Command, CommandHandler};
 use crate::coordinates::Coordinates;
 use crate::grid::Grid;
@@ -98,10 +108,14 @@ impl Orchestrator {
 
             if let Some(event) = user_input::poll_event(Duration::from_millis(25))? {
                 let command = CommandHandler::event_to_command(&event, self.app.mode);
-                if self.handle_command(command)? {
-                    break;
+                match self.handle_command(command)? {
+                    CommandOutcome::Quit => break,
+                    CommandOutcome::Render => {
+                        self.clamp_cursor();
+                        self.render()?;
+                    }
+                    CommandOutcome::Handled => {}
                 }
-                self.render()?;
             }
         }
 
@@ -338,13 +352,30 @@ impl Orchestrator {
         }
     }
 
-    fn handle_command(&mut self, command: Command) -> io::Result<bool> {
+    fn handle_command(&mut self, command: Command) -> io::Result<CommandOutcome> {
         let grid_position = self.app.grid_cursor();
-        let mut should_quit = false;
 
         match command {
-            Command::Quit => {
-                should_quit = true;
+            Command::Quit => return Ok(CommandOutcome::Quit),
+            Command::Resize => {
+                // Render first to update viewport_size with the new terminal dimensions
+                self.render()?;
+                // Now clamp the cursor against the updated viewport_size
+                self.clamp_cursor();
+                return Ok(CommandOutcome::Handled);
+            }
+            Command::ClearGrid => {
+                let (grid, size) = init_grid_and_size(self.app.grid_multiplier)?;
+                self.app.grid = grid;
+                self.app.viewport_size = size;
+                self.app
+                    .viewport
+                    .update_size(self.app.viewport_size.clone(), self.app.grid.get_size());
+                // Render first to get the correct canvas dimensions
+                self.render()?;
+                // Now center the cursor based on the actual canvas size
+                self.center_cursor();
+                return Ok(CommandOutcome::Handled);
             }
             Command::MoveCursorLeft => self.move_cur_left(),
             Command::MoveCursorRight => self.move_cur_right(),
@@ -365,18 +396,6 @@ impl Orchestrator {
             Command::ToggleCellDead => {
                 self.app.grid.kill(grid_position);
                 self.move_cur_left();
-            }
-            Command::ClearGrid => {
-                let (grid, size) = init_grid_and_size(self.app.grid_multiplier)?;
-                self.app.grid = grid;
-                self.app.viewport_size = size;
-                self.app
-                    .viewport
-                    .update_size(self.app.viewport_size.clone(), self.app.grid.get_size());
-                // Render first to get the correct canvas dimensions (terminal minus header, footer, gallery)
-                self.render()?;
-                // Now center the cursor based on the actual canvas size
-                self.center_cursor();
             }
             Command::PlaceLastPattern => {
                 if let Some(index) = self.app.last_pattern {
@@ -441,7 +460,6 @@ impl Orchestrator {
             Command::SetCursorPosition(x, y) => {
                 self.set_cursor_from_screen(x, y);
             }
-            // Gallery commands
             Command::EnterGalleryMode => {
                 self.app.mode = AppMode::PatternGallery;
             }
@@ -466,8 +484,7 @@ impl Orchestrator {
             Command::NoOp => {}
         }
 
-        self.clamp_cursor();
-        Ok(should_quit)
+        Ok(CommandOutcome::Render)
     }
 }
 

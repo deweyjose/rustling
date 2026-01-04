@@ -12,6 +12,7 @@ use crate::app::AppMode;
 #[derive(Debug, Clone)]
 pub enum Command {
     Quit,
+    Resize,    
     MoveCursorLeft,
     MoveCursorRight,
     MoveCursorUp,
@@ -58,34 +59,42 @@ impl CommandHandler {
     }
 
     fn help_event_to_command(event: &Event) -> Command {
-        if let Event::Key(key) = event {
-            if (key.code == KeyCode::Esc || key.code == KeyCode::Char('h'))
-                && key.kind == KeyEventKind::Press
-            {
-                return Command::ExitHelp;
+        match event {
+            Event::Key(key) => {
+                if (key.code == KeyCode::Esc || key.code == KeyCode::Char('h'))
+                    && key.kind == KeyEventKind::Press
+                {
+                    return Command::ExitHelp;
+                }
             }
+            Event::Resize(_, _) => return Command::Resize,
+            _ => {}
         }
         Command::NoOp
     }
 
     fn gallery_event_to_command(event: &Event) -> Command {
-        if let Event::Key(key) = event {
-            if key.kind != KeyEventKind::Press {
-                return Command::NoOp;
-            }
-            return match key.code {
-                KeyCode::Char('g') | KeyCode::Esc => Command::ExitGalleryMode,
-                KeyCode::Up => Command::GalleryUp,
-                KeyCode::Down => Command::GalleryDown,
-                KeyCode::Left => Command::GalleryCollapse,
-                KeyCode::Right => Command::GalleryExpand,
-                KeyCode::Enter => Command::GallerySelect,
-                KeyCode::Char('q') => Command::Quit,
-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    Command::Quit
+        match event {
+            Event::Key(key) => {
+                if key.kind != KeyEventKind::Press {
+                    return Command::NoOp;
                 }
-                _ => Command::NoOp,
-            };
+                return match key.code {
+                    KeyCode::Char('g') | KeyCode::Esc => Command::ExitGalleryMode,
+                    KeyCode::Up => Command::GalleryUp,
+                    KeyCode::Down => Command::GalleryDown,
+                    KeyCode::Left => Command::GalleryCollapse,
+                    KeyCode::Right => Command::GalleryExpand,
+                    KeyCode::Enter => Command::GallerySelect,
+                    KeyCode::Char('q') => Command::Quit,
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        Command::Quit
+                    }
+                    _ => Command::NoOp,
+                };
+            }
+            Event::Resize(_, _) => return Command::Resize,
+            _ => {}
         }
         Command::NoOp
     }
@@ -94,6 +103,7 @@ impl CommandHandler {
         match event {
             Event::Key(key) => Self::key_to_command(key),
             Event::Mouse(mouse) => Self::mouse_to_command(mouse),
+            Event::Resize(_, _) => Command::Resize,
             _ => Command::NoOp,
         }
     }
