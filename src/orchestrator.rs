@@ -373,6 +373,9 @@ impl Orchestrator {
                 self.app
                     .viewport
                     .update_size(self.app.viewport_size.clone(), self.app.grid.get_size());
+                // Render first to get the correct canvas dimensions (terminal minus header, footer, gallery)
+                self.render()?;
+                // Now center the cursor based on the actual canvas size
                 self.center_cursor();
             }
             Command::PlaceLastPattern => {
