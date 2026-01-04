@@ -1,168 +1,422 @@
-use std::cmp::max;
-use std::cmp::min;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
-use std::thread;
-use std::time::Duration;
-use std::time::Instant;
+use std::io::{self, Stdout};
+use std::time::{Duration, Instant};
 
-use termion::event::Event;
-use termion::event::Key::{Char, Esc};
+use crossterm::execute;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use crossterm::{event, terminal};
+use ratatui::backend::CrosstermBackend;
+use ratatui::prelude::Rect;
+use ratatui::Terminal;
 
+use crate::app::{App, AppMode, GalleryCursor};
+
+/// Describes what the run loop should do after handling a command
+pub enum CommandOutcome {
+    /// Exit the application
+    Quit,
+    /// Clamp cursor then render (standard flow for most commands)
+    Render,
+    /// Command already handled rendering and clamping (e.g., resize)
+    Handled,
+}
 use crate::commands::{Command, CommandHandler};
 use crate::coordinates::Coordinates;
 use crate::grid::Grid;
-use crate::pattern;
-use crate::renderer::{RenderState, Renderer};
+use crate::pattern::PatternType;
+use crate::renderer::Renderer;
 use crate::size::Size;
+use crate::theme::Theme;
 use crate::user_input;
 use crate::viewport::Viewport;
+use crate::widgets::pattern_gallery::compute_visible_nodes;
 
-fn init_grid_and_size(grid_multiplier: usize) -> (Grid, Size) {
-    let (width, height) = termion::terminal_size().unwrap_or((80, 24));
+const PATTERN_GALLERY_WIDTH: u16 = 24;
+
+/// Configuration for grid initialization
+pub struct GridConfig {
+    pub multiplier: usize,
+    pub max_width: Option<usize>,
+    pub max_height: Option<usize>,
+}
+
+fn init_grid_and_size(config: &GridConfig) -> io::Result<(Grid, Size)> {
+    let (term_width, term_height) = terminal::size()?;
+
+    // Calculate grid dimensions: terminal * multiplier, capped by max if provided
+    let mut grid_width = term_width as usize * config.multiplier;
+    let mut grid_height = term_height as usize * config.multiplier;
+
+    if let Some(max_w) = config.max_width {
+        grid_width = grid_width.min(max_w);
+    }
+    if let Some(max_h) = config.max_height {
+        grid_height = grid_height.min(max_h);
+    }
 
     let grid = Grid::new(Size {
-        width: width as usize * grid_multiplier,
-        height: height as usize * grid_multiplier,
+        width: grid_width,
+        height: grid_height,
     });
 
     let size = Size {
-        width: width as usize,
-        height: height as usize,
+        width: term_width as usize,
+        height: term_height as usize,
     };
 
-    (grid, size)
+    Ok((grid, size))
 }
 
 pub struct Orchestrator {
-    grid: Grid,
-    cur_pos: Coordinates,
-    viewport: Viewport,
-    viewport_size: Size,
-    running: bool,
-    configuration: Vec<pattern::PatternType>,
-    current_pattern_type: usize,
-    last_pattern: Option<usize>,
-    simulation_delay: u128,
-    grid_multiplier: usize,
-}
-
-pub fn init(configuration: Vec<pattern::PatternType>, grid_multiplier: usize) -> Orchestrator {
-    let (grid, size) = init_grid_and_size(grid_multiplier);
-    let viewport = Viewport::new(grid.get_size(), size.clone());
-
-    Orchestrator {
-        grid,
-        cur_pos: Coordinates { x: 1, y: 1 },
-        viewport,
-        viewport_size: size,
-        running: true,
-        configuration,
-        current_pattern_type: 0,
-        last_pattern: None,
-        simulation_delay: 50,
-        grid_multiplier,
-    }
+    app: App,
+    terminal: Terminal<CrosstermBackend<Stdout>>,
+    theme: Theme,
+    grid_config: GridConfig,
+    last_canvas_area: Option<Rect>,
+    last_tick: Instant,
 }
 
 impl Orchestrator {
-    pub fn render(&mut self) {
-        let old_pos = self.cur_pos.clone();
-        let rotation_count = self
-            .last_pattern
-            .map(|idx| self.configuration[self.current_pattern_type].patterns[idx].rotation_count)
-            .unwrap_or(0);
-        let render_state = RenderState {
-            cur_pos: &self.cur_pos,
-            running: self.running,
-            configuration: &self.configuration,
-            current_pattern_type: self.current_pattern_type,
-            last_pattern: self.last_pattern,
-            rotation_count,
+    pub fn init(configuration: Vec<PatternType>, grid_config: GridConfig) -> io::Result<Self> {
+        let terminal = setup_terminal()?;
+        let (grid, size) = init_grid_and_size(&grid_config)?;
+        let viewport = Viewport::new(grid.get_size(), size.clone());
+        let num_types = configuration.len();
+
+        let app = App {
+            grid,
+            cursor: Coordinates { x: 0, y: 0 },
+            viewport,
+            viewport_size: size,
+            running: true,
+            configuration,
+            current_pattern_type: 0,
+            last_pattern: None,
+            simulation_delay: 50,
+            mode: AppMode::Normal,
+            gallery_cursor: GalleryCursor::new(num_types),
         };
-        Renderer::render_all(
-            &self.grid,
-            &self.viewport,
-            &self.viewport_size,
-            &render_state,
-        );
-        Renderer::set_cursor_pos(&old_pos);
+
+        Ok(Self {
+            app,
+            terminal,
+            theme: Theme::default(),
+            grid_config,
+            last_canvas_area: None,
+            last_tick: Instant::now(),
+        })
     }
 
-    fn render_help(&self) {
-        let rotation_count = self
-            .last_pattern
-            .map(|idx| self.configuration[self.current_pattern_type].patterns[idx].rotation_count)
-            .unwrap_or(0);
-        let render_state = RenderState {
-            cur_pos: &self.cur_pos,
-            running: self.running,
-            configuration: &self.configuration,
-            current_pattern_type: self.current_pattern_type,
-            last_pattern: self.last_pattern,
-            rotation_count,
-        };
-        Renderer::render_help(&self.viewport_size, self.grid.get_size(), &render_state);
+    pub fn run(&mut self) -> io::Result<()> {
+        self.render()?;
+        self.center_cursor();
+        self.render()?;
+
+        loop {
+            let elapsed = self.last_tick.elapsed().as_millis() as u128;
+            if self.app.mode != AppMode::Help
+                && self.app.mode != AppMode::PatternGallery
+                && self.app.running
+                && elapsed > self.app.simulation_delay
+            {
+                self.app.grid.generate();
+                self.last_tick = Instant::now();
+                self.render()?;
+            }
+
+            if let Some(event) = user_input::poll_event(Duration::from_millis(25))? {
+                let command = CommandHandler::event_to_command(&event, self.app.mode);
+                match self.handle_command(command)? {
+                    CommandOutcome::Quit => break,
+                    CommandOutcome::Render => {
+                        self.clamp_cursor();
+                        self.render()?;
+                    }
+                    CommandOutcome::Handled => {}
+                }
+            }
+        }
+
+        Ok(())
     }
 
-    fn set_pos(&mut self, x: usize, y: usize) {
-        self.cur_pos.x = x;
-        self.cur_pos.y = y;
-        Renderer::set_cursor_pos(&self.cur_pos);
+    fn render(&mut self) -> io::Result<()> {
+        let mut canvas_area: Option<Rect> = None;
+        let app = &self.app;
+        let theme = &self.theme;
+        let mut list_state = self.app.gallery_cursor.list_state.clone();
+
+        self.terminal.draw(|frame| {
+            let outcome =
+                Renderer::render(frame, app, theme, PATTERN_GALLERY_WIDTH, &mut list_state);
+            canvas_area = Some(outcome.canvas_area);
+        })?;
+
+        // Update the list state after render (for scroll position)
+        self.app.gallery_cursor.list_state = list_state;
+
+        if let Some(area) = canvas_area {
+            self.app.viewport_size = Size {
+                width: area.width as usize,
+                height: area.height as usize,
+            };
+            self.app
+                .viewport
+                .update_size(self.app.viewport_size.clone(), self.app.grid.get_size());
+            self.last_canvas_area = Some(area);
+        }
+
+        Ok(())
+    }
+
+    fn center_cursor(&mut self) {
+        let max_x = self.max_cursor_x();
+        let max_y = self.max_cursor_y();
+
+        self.app.cursor.x = max_x / 2;
+        self.app.cursor.y = max_y / 2;
+    }
+
+    fn clamp_cursor(&mut self) {
+        let max_x = self.max_cursor_x();
+        let max_y = self.max_cursor_y();
+
+        if self.app.cursor.x > max_x {
+            self.app.cursor.x = max_x;
+        }
+        if self.app.cursor.y > max_y {
+            self.app.cursor.y = max_y;
+        }
+    }
+
+    /// Maximum valid cursor X position (considering both viewport and grid bounds)
+    fn max_cursor_x(&self) -> usize {
+        let grid_limit = self
+            .app
+            .grid
+            .get_size()
+            .width
+            .saturating_sub(self.app.viewport.x_offset());
+        self.app
+            .viewport_size
+            .width
+            .min(grid_limit)
+            .saturating_sub(1)
+    }
+
+    /// Maximum valid cursor Y position (considering both viewport and grid bounds)
+    fn max_cursor_y(&self) -> usize {
+        let grid_limit = self
+            .app
+            .grid
+            .get_size()
+            .height
+            .saturating_sub(self.app.viewport.y_offset());
+        self.app
+            .viewport_size
+            .height
+            .min(grid_limit)
+            .saturating_sub(1)
     }
 
     fn move_cur_left(&mut self) {
-        if self.cur_pos.x > 0 {
-            self.cur_pos.x -= 1;
+        if self.app.cursor.x > 0 {
+            self.app.cursor.x -= 1;
         }
     }
 
     fn move_cur_left_by(&mut self, amount: usize) {
-        match self.cur_pos.x.checked_sub(amount) {
-            Some(s) => self.cur_pos.x = s,
-            _ => self.cur_pos.x = 0,
-        };
+        self.app.cursor.x = self.app.cursor.x.saturating_sub(amount);
     }
 
     fn move_cur_up(&mut self) {
-        self.cur_pos.y = max(self.cur_pos.y - 1, 2);
-    }
-
-    fn move_cur_right(&mut self) {
-        self.cur_pos.x = min(self.cur_pos.x + 1, self.viewport_size.width);
-    }
-
-    fn move_cur_right_by(&mut self, amount: usize) {
-        self.cur_pos.x = min(self.cur_pos.x + amount, self.viewport_size.width);
-    }
-
-    fn move_cur_down(&mut self) {
-        self.cur_pos.y = min(self.cur_pos.y + 1, self.viewport_size.height);
-    }
-
-    fn view_to_grid_coordinates(&self) -> Coordinates {
-        self.viewport.view_to_grid(self.cur_pos.clone())
-    }
-
-    fn rotate_last_shape(&mut self) {
-        if let Some(index) = self.last_pattern {
-            let pattern = &mut self.configuration[self.current_pattern_type].patterns[index];
-            // Increment rotation count (0, 1, 2, 3, back to 0)
-            pattern.rotation_count = (pattern.rotation_count + 1) % 4;
-            // Rotate the matrix
-            *pattern = pattern.rotate_90();
+        if self.app.cursor.y > 0 {
+            self.app.cursor.y -= 1;
         }
     }
 
-    fn execute_command(&mut self, command: Command) -> bool {
-        let grid_position = self.view_to_grid_coordinates();
-        let mut should_quit = false;
+    fn move_cur_right(&mut self) {
+        let max_x = self.max_cursor_x();
+        if self.app.cursor.x < max_x {
+            self.app.cursor.x += 1;
+        }
+    }
+
+    fn move_cur_right_by(&mut self, amount: usize) {
+        let max_x = self.max_cursor_x();
+        self.app.cursor.x = (self.app.cursor.x + amount).min(max_x);
+    }
+
+    fn move_cur_down(&mut self) {
+        let max_y = self.max_cursor_y();
+        if self.app.cursor.y < max_y {
+            self.app.cursor.y += 1;
+        }
+    }
+
+    fn rotate_last_shape(&mut self) {
+        if let Some(index) = self.app.last_pattern {
+            if let Some(pattern) = self
+                .app
+                .configuration
+                .get_mut(self.app.current_pattern_type)
+                .and_then(|p| p.patterns.get_mut(index))
+            {
+                pattern.rotation_count = (pattern.rotation_count + 1) % 4;
+                *pattern = pattern.rotate_90();
+            }
+        }
+    }
+
+    fn set_cursor_from_screen(&mut self, x: usize, y: usize) {
+        if let Some(area) = self.last_canvas_area {
+            let mouse_x = x as u16;
+            let mouse_y = y as u16;
+
+            if mouse_x >= area.x
+                && mouse_x < area.x.saturating_add(area.width)
+                && mouse_y >= area.y
+                && mouse_y < area.y.saturating_add(area.height)
+            {
+                let view_x = (mouse_x - area.x) as usize;
+                let view_y = (mouse_y - area.y) as usize;
+                self.app.cursor.x = view_x.min(self.max_cursor_x());
+                self.app.cursor.y = view_y.min(self.max_cursor_y());
+            }
+        }
+    }
+
+    // Gallery navigation helpers
+    fn gallery_move_up(&mut self) {
+        let nodes = compute_visible_nodes(&self.app);
+        if nodes.is_empty() {
+            return;
+        }
+
+        // Find current position in the flat list
+        let current_idx = nodes.iter().position(|n| {
+            n.type_idx == self.app.gallery_cursor.pattern_type_idx
+                && n.pattern_idx == self.app.gallery_cursor.pattern_idx
+        });
+
+        if let Some(idx) = current_idx {
+            if idx > 0 {
+                let prev = &nodes[idx - 1];
+                self.app.gallery_cursor.pattern_type_idx = prev.type_idx;
+                self.app.gallery_cursor.pattern_idx = prev.pattern_idx;
+            }
+        }
+    }
+
+    fn gallery_move_down(&mut self) {
+        let nodes = compute_visible_nodes(&self.app);
+        if nodes.is_empty() {
+            return;
+        }
+
+        let current_idx = nodes.iter().position(|n| {
+            n.type_idx == self.app.gallery_cursor.pattern_type_idx
+                && n.pattern_idx == self.app.gallery_cursor.pattern_idx
+        });
+
+        if let Some(idx) = current_idx {
+            if idx + 1 < nodes.len() {
+                let next = &nodes[idx + 1];
+                self.app.gallery_cursor.pattern_type_idx = next.type_idx;
+                self.app.gallery_cursor.pattern_idx = next.pattern_idx;
+            }
+        }
+    }
+
+    fn gallery_expand(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+        let type_idx = cursor.pattern_type_idx;
+
+        if cursor.pattern_idx.is_none() {
+            // On a type node
+            let already_expanded = self
+                .app
+                .gallery_cursor
+                .expanded_types
+                .get(type_idx)
+                .copied()
+                .unwrap_or(false);
+
+            if !already_expanded {
+                // Expand the type
+                if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                    self.app.gallery_cursor.expanded_types[type_idx] = true;
+                }
+            } else {
+                // Already expanded, move into first child
+                if let Some(pt) = self.app.configuration.get(type_idx) {
+                    if !pt.patterns.is_empty() {
+                        self.app.gallery_cursor.pattern_idx = Some(0);
+                    }
+                }
+            }
+        }
+    }
+
+    fn gallery_collapse(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+        let type_idx = cursor.pattern_type_idx;
+
+        if cursor.pattern_idx.is_some() {
+            // On a pattern, go back to parent type
+            self.app.gallery_cursor.pattern_idx = None;
+        } else {
+            // On a type, collapse it
+            if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                self.app.gallery_cursor.expanded_types[type_idx] = false;
+            }
+        }
+    }
+
+    fn gallery_select(&mut self) {
+        let cursor = &self.app.gallery_cursor;
+
+        if let Some(pat_idx) = cursor.pattern_idx {
+            // Select pattern
+            self.app.current_pattern_type = cursor.pattern_type_idx;
+            self.app.last_pattern = Some(pat_idx);
+            // Optionally exit gallery mode after selection
+            self.app.mode = AppMode::Normal;
+        } else {
+            // On a type node, toggle expand/collapse
+            let type_idx = cursor.pattern_type_idx;
+            if type_idx < self.app.gallery_cursor.expanded_types.len() {
+                self.app.gallery_cursor.expanded_types[type_idx] =
+                    !self.app.gallery_cursor.expanded_types[type_idx];
+            }
+        }
+    }
+
+    fn handle_command(&mut self, command: Command) -> io::Result<CommandOutcome> {
+        let grid_position = self.app.grid_cursor();
 
         match command {
-            Command::Quit => {
-                self.set_pos(1, 1);
-                should_quit = true;
+            Command::Quit => return Ok(CommandOutcome::Quit),
+            Command::Resize => {
+                // Render first to update viewport_size with the new terminal dimensions
+                self.render()?;
+                // Now clamp the cursor against the updated viewport_size
+                self.clamp_cursor();
+                return Ok(CommandOutcome::Handled);
+            }
+            Command::ClearGrid => {
+                let (grid, size) = init_grid_and_size(&self.grid_config)?;
+                self.app.grid = grid;
+                self.app.viewport_size = size;
+                self.app
+                    .viewport
+                    .update_size(self.app.viewport_size.clone(), self.app.grid.get_size());
+                // Render first to get the correct canvas dimensions
+                self.render()?;
+                // Now center the cursor based on the actual canvas size
+                self.center_cursor();
+                return Ok(CommandOutcome::Handled);
             }
             Command::MoveCursorLeft => self.move_cur_left(),
             Command::MoveCursorRight => self.move_cur_right(),
@@ -170,155 +424,131 @@ impl Orchestrator {
             Command::MoveCursorDown => self.move_cur_down(),
             Command::MoveCursorLeftBy(amount) => self.move_cur_left_by(amount),
             Command::MoveCursorRightBy(amount) => self.move_cur_right_by(amount),
-            Command::MoveCursorToStartOfLine => self.cur_pos.x = 1,
-            Command::MoveCursorToEndOfLine => self.cur_pos.x = self.viewport_size.width,
+            Command::MoveCursorToStartOfLine => self.app.cursor.x = 0,
+            Command::MoveCursorToEndOfLine => {
+                self.app.cursor.x = self.max_cursor_x();
+            }
             Command::ToggleCellAlive => {
-                self.grid.resurrect(grid_position);
+                self.app.grid.resurrect(grid_position);
                 self.move_cur_right();
             }
             Command::ToggleCellDead => {
-                self.grid.kill(grid_position);
+                self.app.grid.kill(grid_position);
                 self.move_cur_left();
             }
-            Command::ClearGrid => {
-                let (grid, size) = init_grid_and_size(self.grid_multiplier);
-                self.grid = grid;
-                self.viewport_size = size;
-                self.viewport
-                    .update_size(self.viewport_size.clone(), self.grid.get_size());
-            }
             Command::PlaceLastPattern => {
-                if let Some(index) = self.last_pattern {
-                    // Get the rotated pattern from configuration
-                    let matrix =
-                        &self.configuration[self.current_pattern_type].patterns[index].matrix;
-                    self.grid.shape(grid_position, matrix);
+                if let Some(index) = self.app.last_pattern {
+                    if let Some(patterns) = self
+                        .app
+                        .configuration
+                        .get(self.app.current_pattern_type)
+                        .map(|p| &p.patterns)
+                    {
+                        if let Some(pattern) = patterns.get(index) {
+                            self.app.grid.shape(grid_position, &pattern.matrix);
+                        }
+                    }
                 }
             }
             Command::CyclePatternType => {
-                self.last_pattern = None;
-                match self.current_pattern_type {
-                    x if x == self.configuration.len() - 1 => {
-                        self.current_pattern_type = 0;
-                    }
-                    _ => {
-                        self.current_pattern_type += 1;
-                    }
+                self.app.last_pattern = None;
+                if self.app.current_pattern_type + 1 >= self.app.configuration.len() {
+                    self.app.current_pattern_type = 0;
+                } else {
+                    self.app.current_pattern_type += 1;
                 }
             }
             Command::RotateLastPattern => {
                 self.rotate_last_shape();
             }
             Command::ToggleSimulation => {
-                self.running = !self.running;
+                self.app.running = !self.app.running;
             }
             Command::StepSimulation => {
-                self.grid.generate();
-                self.render();
+                self.app.grid.generate();
+                self.last_tick = Instant::now();
             }
             Command::SpeedUp => {
-                if let Some(val) = self.simulation_delay.checked_sub(10) {
-                    self.simulation_delay = val;
+                if let Some(val) = self.app.simulation_delay.checked_sub(10) {
+                    self.app.simulation_delay = val;
                 }
             }
             Command::SpeedDown => {
-                if let Some(val) = self.simulation_delay.checked_add(10) {
-                    self.simulation_delay = val;
+                if let Some(val) = self.app.simulation_delay.checked_add(10) {
+                    self.app.simulation_delay = val;
                 }
             }
             Command::PlacePattern(index) => {
-                let patterns = &self.configuration[self.current_pattern_type].patterns;
-                if index < patterns.len() {
-                    self.last_pattern = Some(index);
-                    self.grid.shape(grid_position, &patterns[index].matrix);
+                if let Some(pattern_type) =
+                    self.app.configuration.get(self.app.current_pattern_type)
+                {
+                    if index < pattern_type.patterns.len() {
+                        self.app.last_pattern = Some(index);
+                        self.app
+                            .grid
+                            .shape(grid_position, &pattern_type.patterns[index].matrix);
+                    }
                 }
             }
             Command::ShowHelp => {
-                self.render_help();
+                self.app.mode = AppMode::Help;
             }
             Command::ExitHelp => {
-                self.render();
+                self.app.mode = AppMode::Normal;
             }
             Command::SetCursorPosition(x, y) => {
-                self.set_pos(x, y);
+                self.set_cursor_from_screen(x, y);
+            }
+            Command::EnterGalleryMode => {
+                self.app.mode = AppMode::PatternGallery;
+            }
+            Command::ExitGalleryMode => {
+                self.app.mode = AppMode::Normal;
+            }
+            Command::GalleryUp => {
+                self.gallery_move_up();
+            }
+            Command::GalleryDown => {
+                self.gallery_move_down();
+            }
+            Command::GalleryExpand => {
+                self.gallery_expand();
+            }
+            Command::GalleryCollapse => {
+                self.gallery_collapse();
+            }
+            Command::GallerySelect => {
+                self.gallery_select();
             }
             Command::NoOp => {}
         }
 
-        should_quit
+        Ok(CommandOutcome::Render)
     }
+}
 
-    pub fn run(&mut self) {
-        let (tx, rx): (Sender<Event>, Receiver<Event>) = mpsc::channel();
-
-        let _ = thread::spawn(move || {
-            user_input::capture_input(tx);
-        });
-
-        let mut wait_for_state: Vec<termion::event::Key> = Vec::new();
-        let mut last_render = Instant::now();
-        let mut in_help_mode = false;
-
-        self.render();
-        self.set_pos(self.viewport_size.width / 2, self.viewport_size.height / 2);
-
-        loop {
-            if wait_for_state.is_empty()
-                && !in_help_mode
-                && last_render.elapsed().as_millis() > self.simulation_delay
-            {
-                if self.running {
-                    self.grid.generate();
-                }
-                last_render = Instant::now();
-                self.render();
-            }
-
-            let result = rx.recv_timeout(Duration::from_millis(25));
-            if let Ok(event) = result {
-                // Handle help mode state
-                if let Event::Key(key) = &event {
-                    if !wait_for_state.is_empty() {
-                        if wait_for_state.contains(key) {
-                            wait_for_state.clear();
-                            if key == &Esc || key == &Char('h') {
-                                in_help_mode = false;
-                                self.render();
-                            }
-                        }
-                        continue;
-                    }
-                    if (key == &Esc || key == &Char('h')) && in_help_mode {
-                        in_help_mode = false;
-                        self.render();
-                        continue;
-                    }
-                }
-
-                let command = CommandHandler::event_to_command(&event, in_help_mode);
-
-                match command {
-                    Command::ShowHelp => {
-                        in_help_mode = true;
-                        wait_for_state.push(Esc);
-                        wait_for_state.push(Char('h'));
-                    }
-                    Command::ExitHelp => {
-                        in_help_mode = false;
-                        self.render();
-                        continue;
-                    }
-                    _ => {}
-                }
-
-                if self.execute_command(command) {
-                    break;
-                }
-
-                if !in_help_mode {
-                    self.render();
-                }
-            }
-        }
+impl Drop for Orchestrator {
+    fn drop(&mut self) {
+        let _ = restore_terminal(&mut self.terminal);
     }
+}
+
+fn setup_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, event::EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let terminal = Terminal::new(backend)?;
+    Ok(terminal)
+}
+
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        event::DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+    Ok(())
 }
