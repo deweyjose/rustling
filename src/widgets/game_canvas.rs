@@ -32,7 +32,9 @@ impl Widget for GameCanvas<'_> {
 
         // Calculate where the grid ends in viewport coordinates
         let grid_end_x = grid_size.width.saturating_sub(self.app.viewport.x_offset());
-        let grid_end_y = grid_size.height.saturating_sub(self.app.viewport.y_offset());
+        let grid_end_y = grid_size
+            .height
+            .saturating_sub(self.app.viewport.y_offset());
 
         for y in 0..max_height {
             let grid_y = self.app.viewport.y_offset() + y as usize;

@@ -12,7 +12,7 @@ use crate::app::AppMode;
 #[derive(Debug, Clone)]
 pub enum Command {
     Quit,
-    Resize,    
+    Resize,
     MoveCursorLeft,
     MoveCursorRight,
     MoveCursorUp,
