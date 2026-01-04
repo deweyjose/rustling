@@ -1,55 +1,37 @@
 # rustmaton
-A text editor version of [Conways Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life#Algorithms) implemented in Rust.
+
+A terminal-based Conway's Game of Life editor built with Rust, [ratatui](https://ratatui.rs/), and [crossterm](https://github.com/crossterm-rs/crossterm).
 
 <img src="docs/img/gol.gif" width="500">
 
 ## Overview
-- The screen represents a grid of cells. 
-- Each cell can be alive or dead.
-- Every loop of the simulation computes the health of every cell. 
-- The health of a cell is computed as follows:
-  - currently Alive with 2 or 3 Alive neighbors => Alive
-  - currently Dead with 3 Alive neighbors => Alive
-  - all other conditions => Dead
 
-## Game Play
+- The screen displays a grid of cells, each either alive or dead
+- The simulation computes the next generation using Conway's rules:
+  - Alive cell with 2 or 3 alive neighbors → stays alive
+  - Dead cell with exactly 3 alive neighbors → becomes alive
+  - All other cells → die or stay dead
 
-It's easy - use the key pad to navigate and add more patterns to the grid. 
-- up, down, left and right keys
-- tab and back-tab (shift+tab)
+## Features
 
-Mouse clicks can set the cursor point for faster navigation!
+- Widget-based UI with header, footer, game canvas, and pattern gallery
+- Tree-structured pattern browser with keyboard navigation
+- Mouse support for cursor positioning
+- Adjustable simulation speed
+- Pattern rotation
+- Cross-platform (macOS, Linux, Windows)
 
-You can increase or decrease the speed of the simulation using `+` or `-` keys.
+## Installation
 
-If the console window is resized the game needs to be reset using the `c` key.
-
-<img src="docs/img/screencap.png" width="500">
-
-## Install
-
-The installer will create a directory named `rustmaton` with the executable and patterns.json file.
+### Pre-built Binary
 
 ```console
-curl --location https://github.com/deweyjose/rustling/releases/download/0.2.4/install.sh | sh
-```
-
-## Development
-
-### Requirements
-
-- **Rust toolchain**: Rust 1.92.0 or later
-- **Cargo**: Included with Rust (comes with `rustup`)
-
-If you don't have Rust installed, you can install it using [rustup](https://rustup.rs/):
-
-```console
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --location https://github.com/deweyjose/rustling/releases/download/0.2.5/install.sh | sh
 ```
 
 ### Building from Source
 
-Clone the repository and build the project:
+Requires Rust 1.70.0 or later.
 
 ```console
 git clone https://github.com/deweyjose/rustling.git
@@ -57,82 +39,70 @@ cd rustling
 cargo build --release
 ```
 
-The compiled binary will be located at `target/release/rustmaton`.
-
-### Running from Source
-
-To run the development version directly:
-
-```console
-cargo run
-```
-
-Or run with a custom patterns file:
-
-```console
-cargo run -- path/to/patterns.json
-```
-
-To run the release-optimized version:
-
-```console
-cargo run --release
-```
-
-### Running Tests
-
-Run the test suite:
-
-```console
-cargo test
-```
+Binary location: `target/release/rustmaton`
 
 ## Usage
 
-If [patterns.json](patterns.json) is in the current working directory, no arguments need to be specified to run rustmaton.
-
 ```console
-% rustmaton
+# Run with default patterns.json in current directory
+rustmaton
+
+# Specify a custom patterns file
+rustmaton --patterns path/to/patterns.json
+
+# Make grid larger than viewport (default multiplier: 3)
+rustmaton --multiplier 5
 ```
 
-Or specify a path to [patterns.json](patterns.json) using the `--patterns` flag:
-```console
-% rustmaton --patterns some/path/patterns.json
-```
+## Controls
 
-You can also make the grid larger than the viewport using the `--multiplier` option:
-```console
-% rustmaton --patterns path/customize.json --multiplier 5
-```
+### Normal Mode
 
-If you built your own patterns file, simply supply a path to it instead.
+| Key | Action |
+|-----|--------|
+| `↑` `↓` `←` `→` | Move cursor |
+| `Tab` / `Shift+Tab` | Move cursor by 4 |
+| `b` / `e` | Jump to start/end of line |
+| `a` | Set cell alive |
+| `d` / `Backspace` | Set cell dead |
+| `1-9` | Place pattern at cursor |
+| `l` | Place last pattern again |
+| `r` | Rotate last pattern 90° |
+| `p` | Cycle pattern type |
+| `g` | Enter pattern gallery |
+| `s` | Toggle simulation |
+| `Space` | Step simulation forward |
+| `+` / `-` | Speed up / slow down |
+| `c` | Clear grid (reset on resize) |
+| `h` | Show help |
+| `q` / `Ctrl+C` | Quit |
 
-### Patterns
+### Gallery Mode (press `g` to enter)
 
-The game comes with a predefined set of well known `pattern types`: `oscillators`, `stills`, `spaceships`. During the simulation only a single `pattern type` is active. The `pattern type` can be changed by pressing the `p` key.
-Each `pattern type` has an array of patterns. You place a pattern on the grid by typing the number corresponding to its index in the array (not 0 based!). Use the `h` help key to see what number key a specific pattern is.
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate tree |
+| `←` | Collapse type or go to parent |
+| `→` | Expand type or enter children |
+| `Enter` | Select pattern |
+| `g` / `Esc` | Exit gallery mode |
 
-#### patterns.json
-rustmaton loads a predefined set of patterns at startup. 
-Simply place [patterns.json](patterns.json) in the same directory as the rustmaton 
-binary and run it. Feel free to customize the list of patterns, 
-or even define you're own patterns.
+### Mouse
 
-If no shape file can be found at startup a simple blinker is loaded as the default shape.
+- Left-click on the game canvas to position cursor
 
-Example structure
+## Patterns
+
+Patterns are loaded from `patterns.json`. The file contains pattern types (categories) with named patterns:
+
 ```json
 [
   {
-    "name": "methuselahs",
+    "name": "oscillators",
     "patterns": [
       {
-        "name": "r-pentomino",
-        "matrix": [
-          [0,1,1],
-          [1,1,0],
-          [0,1,0]
-        ],
+        "name": "blinker",
+        "matrix": [[1,1,1]],
         "rotation_count": 0
       }
     ]
@@ -140,142 +110,138 @@ Example structure
 ]
 ```
 
-Note: The `rotation_count` field is optional (defaults to 0 if not specified). It represents the rotation state of the pattern (0-3 for 0°, 90°, 180°, 270°).
+- `matrix`: 2D array where `1` = alive, `0` = dead
+- `rotation_count`: Optional (0-3), represents 0°/90°/180°/270° rotation
 
-### Cells
-
-Individual cells can be manually set to `Alive` or `Dead` using the `a` or `d` key (or `Backspace` for dead). 
+If no patterns file is found, a default blinker pattern is loaded.
 
 ## Architecture
 
-The codebase follows a modular architecture with clear separation of concerns:
-
 ### Module Overview
 
-- **`main.rs`** - Entry point that parses CLI arguments, loads pattern configuration from JSON, and initializes the Orchestrator
-- **`orchestrator.rs`** - Main application controller that orchestrates the game loop, manages state, and coordinates between input, rendering, and game logic
-- **`grid.rs`** - Core Game of Life engine implementing Conway's rules: cell state management, neighbor counting, and generation computation
-- **`viewport.rs`** - Viewport management for navigating a large grid: maintains offset state, handles coordinate conversion between viewport and grid coordinates, and provides panning methods (prepared for future use)
-- **`renderer.rs`** - Terminal rendering logic: handles all screen output including grid display, header, footer, help screen, and cursor positioning
-- **`commands.rs`** - Input command abstraction: converts raw terminal events into semantic Command enum variants, separating input parsing from command execution
-- **`user_input.rs`** - Low-level input handling: runs in a separate thread, captures terminal events (keyboard and mouse), and sends them through a channel to the main thread
-- **`pattern.rs`** - Pattern data structures and operations: defines Pattern and PatternType structures, provides immutable pattern rotation functionality
-- **`health.rs`** - Cell state enumeration: defines Alive/Dead states with serialization support and display formatting
-- **`coordinates.rs`** - 2D coordinate representation: simple (x, y) position structure
-- **`size.rs`** - Dimension representation: width and height structure for grids and viewports
+```
+src/
+├── main.rs           # Entry point, CLI parsing, pattern loading
+├── app.rs            # Application state (App, AppMode, GalleryCursor)
+├── orchestrator.rs   # Game loop, event handling, command execution
+├── commands.rs       # Event → Command mapping, mode-aware dispatch
+├── renderer.rs       # Layout composition, widget orchestration
+├── user_input.rs     # Crossterm event polling
+├── grid.rs           # Conway's Game of Life engine
+├── viewport.rs       # Grid-to-screen coordinate conversion
+├── pattern.rs        # Pattern/PatternType data structures
+├── health.rs         # Cell state enum (Alive/Dead)
+├── coordinates.rs    # 2D position struct
+├── size.rs           # Width/height dimensions
+├── theme.rs          # UI styling (colors, modifiers)
+└── widgets/
+    ├── mod.rs
+    ├── game_canvas.rs     # Grid rendering widget
+    ├── header_bar.rs      # Title bar widget
+    ├── footer_bar.rs      # Status bar widget
+    ├── help_popup.rs      # Help overlay widget
+    └── pattern_gallery.rs # Tree-view pattern browser (StatefulWidget)
+```
 
 ### Architecture Diagram
 
 ```mermaid
 flowchart TB
     subgraph Entry["Entry Point"]
-        Main[main.rs<br/>CLI Args, Pattern Loading]
+        Main[main.rs]
     end
-    
+
+    subgraph State["Application State"]
+        App[app.rs<br/>App, AppMode, GalleryCursor]
+        Theme[theme.rs<br/>UI Styling]
+    end
+
+    subgraph Control["Control Layer"]
+        Orchestrator[orchestrator.rs<br/>Game Loop & Commands]
+        Commands[commands.rs<br/>Mode-aware Dispatch]
+        UserInput[user_input.rs<br/>Event Polling]
+    end
+
+    subgraph Rendering["Rendering Layer"]
+        Renderer[renderer.rs<br/>Layout Composition]
+        subgraph Widgets["Widgets"]
+            GameCanvas[game_canvas.rs]
+            HeaderBar[header_bar.rs]
+            FooterBar[footer_bar.rs]
+            HelpPopup[help_popup.rs]
+            PatternGallery[pattern_gallery.rs]
+        end
+    end
+
     subgraph Core["Core Game Logic"]
-        Grid[grid.rs<br/>Game of Life Engine]
-        Health[health.rs<br/>Cell States]
-        Coordinates[coordinates.rs<br/>Position]
-        Size[size.rs<br/>Dimensions]
+        Grid[grid.rs<br/>Conway Engine]
+        Viewport[viewport.rs<br/>Coordinate Mapping]
+        Pattern[pattern.rs<br/>Pattern Data]
     end
-    
-    subgraph Patterns["Pattern Management"]
-        Pattern[pattern.rs<br/>Pattern Data & Rotation]
+
+    subgraph Primitives["Primitives"]
+        Health[health.rs]
+        Coordinates[coordinates.rs]
+        Size[size.rs]
     end
-    
-    subgraph View["View & Rendering"]
-        Viewport[viewport.rs<br/>Viewport State &<br/>Coordinate Conversion]
-        Renderer[renderer.rs<br/>Terminal Rendering]
-    end
-    
-    subgraph Control["Application Control"]
-        Orchestrator[orchestrator.rs<br/>Main Controller<br/>Game Loop & State]
-    end
-    
-    subgraph Input["Input Handling"]
-        UserInput[user_input.rs<br/>Event Capture Thread]
-        Commands[commands.rs<br/>Event → Command Mapping]
-    end
-    
-    Main -->|Initializes| Orchestrator
-    Main -->|Loads| Pattern
-    
-    Orchestrator -->|Manages| Grid
-    Orchestrator -->|Uses| Viewport
-    Orchestrator -->|Uses| Renderer
-    Orchestrator -->|Processes| Commands
-    Orchestrator -->|Stores| Pattern
-    
-    Grid -->|Uses| Health
-    Grid -->|Uses| Coordinates
-    Grid -->|Uses| Size
-    
-    Viewport -->|Uses| Coordinates
-    Viewport -->|Uses| Size
-    
-    Renderer -->|Uses| Grid
-    Renderer -->|Uses| Viewport
-    Renderer -->|Uses| Size
-    
-    Commands -->|Receives Events| UserInput
-    
-    Pattern -->|Uses| Health
-    
-    Orchestrator -.->|Event Loop| Commands
-    Orchestrator -.->|Renders| Renderer
-    Orchestrator -.->|Updates| Grid
+
+    Main --> Orchestrator
+    Main --> Pattern
+    Orchestrator --> App
+    Orchestrator --> Renderer
+    Orchestrator --> Commands
+    Orchestrator --> Grid
+    Commands --> UserInput
+    Renderer --> Widgets
+    Renderer --> Theme
+    Widgets --> App
+    Grid --> Viewport
+    Grid --> Primitives
+    Viewport --> Primitives
 ```
+
+### Key Design Decisions
+
+- **Ratatui + Crossterm**: Cross-platform TUI framework with immediate-mode rendering and efficient diff-based updates
+- **Widget-based UI**: Each UI component is a separate widget implementing ratatui's `Widget` or `StatefulWidget` trait
+- **Mode-aware input**: Commands are dispatched based on current mode (Normal, Help, Gallery)
+- **Stateful gallery**: Pattern gallery uses `ListState` for automatic scroll-to-selection
+- **Separation of concerns**: App state, rendering, and game logic are cleanly separated
 
 ### Data Flow
 
-1. **Initialization**: `main.rs` parses arguments, loads patterns, creates Orchestrator
-2. **Game Loop**: Orchestrator runs the main loop:
-   - Input thread captures events → Commands converts to actions
-   - Orchestrator executes commands (move cursor, place patterns, etc.)
-   - Grid computes new generation when simulation is running
-   - Renderer draws current state using Viewport for coordinate conversion
-3. **Rendering**: Renderer queries Grid through Viewport to map grid coordinates to screen positions
-4. **Pattern Placement**: User places patterns which are rotated (immutably) and drawn onto Grid
+1. **Startup**: `main.rs` parses CLI args, loads patterns, initializes `Orchestrator`
+2. **Game Loop**:
+   - Poll for crossterm events
+   - Map events to commands based on current mode
+   - Execute commands (update App state, Grid, etc.)
+   - Render frame via ratatui's `Terminal::draw()`
+   - Advance simulation if running
+3. **Rendering**: `Renderer` composes layout and delegates to widgets
+4. **Cleanup**: Terminal restored on drop (alternate screen, raw mode disabled)
 
-### Design Principles
+## Dependencies
 
-- **Separation of Concerns**: Each module has a single, well-defined responsibility
-- **Immutability**: Pattern rotation creates new patterns instead of mutating originals
-- **Testability**: Core logic (Grid, Viewport, Commands) can be unit tested independently
-- **Thread Safety**: Input handling runs on a separate thread with channel-based communication
-- **Extensibility**: Command-based input system makes it easy to add new user actions
+| Crate | Purpose |
+|-------|---------|
+| [ratatui](https://crates.io/crates/ratatui) | Terminal UI framework |
+| [crossterm](https://crates.io/crates/crossterm) | Cross-platform terminal manipulation |
+| [clap](https://crates.io/crates/clap) | CLI argument parsing |
+| [serde](https://crates.io/crates/serde) / [serde_json](https://crates.io/crates/serde_json) | Pattern file serialization |
 
-## Help
-Press the `h` key to display or hide help. The simulation is paused while help is displayed.
-
-Below is an example of the help screen. If you've made any customizations to [patterns.json](patterns.json) they will be reflected in the help screen.
+## Development
 
 ```console
-# command keys:
-a       - toggle cursor point alive
-b       - move cursor to the beginning of the current line
-c       - clear the screen
-d       - toggle cursor point dead
-e       - move cursor to the end of the current line
-h       - display help, or exit help if currently rendered
-l       - print the previous pattern again
-p       - cycle through the pattern classes defined in patterns.json
-q       - quit
-r       - rotate the current shape 90 degrees
-s       - toggle the simulation run loop
-' '     - step the simulation forward
-+       - speed up the simulation
--       - slow down the simulation
-[esc]   - exit help
-ctrl+c  - quit
+# Run in development mode
+cargo run
 
-# pattern classes
-Select a different pattern class using the p key
-Print a shape using the number in () to the left of the name
-oscillators
- (1) beacon, (2) blinker, (3) koks galaxy, (4) pulsar, (5) toad
-spaceships
- (1) glider, (2) lwss, (3) hwss
-still
- (1) beehive, (2) block, (3) boat, (4) loaf, (5) tub
+# Run tests
+cargo test
+
+# Build release
+cargo build --release
 ```
+
+## License
+
+MIT OR Apache-2.0
