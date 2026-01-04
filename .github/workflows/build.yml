@@ -1,4 +1,4 @@
-name: "Build, Test, Lint, Clippy"
+name: "Build"
 
 on:
   push:
