@@ -4,53 +4,29 @@ permissions:
   contents: "write"
 
 on:
-  workflow_run:
-    workflows: ["Tag"]
-    types:
-      - "completed"
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   get-tag:
-    name: "Get Tag From Package Version"
+    name: "Get tag info"
     runs-on: "ubuntu-latest"
     outputs:
-      tag_name: ${{ steps.pkg-version.outputs.tag_name }}
-      version: ${{ steps.pkg-version.outputs.version }}
+      tag_name: ${{ steps.tag-info.outputs.tag_name }}
+      version: ${{ steps.tag-info.outputs.version }}
     steps:
-      - name: "Check out the repo"
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: "Fetch tags"
-        run: git fetch --tags --force
-
-      - name: "Read version from Cargo.toml"
-        id: "pkg-version"
-        shell: "bash"
+      - name: "Extract tag info"
+        id: "tag-info"
         run: |
-          PKG_VERSION=$(awk -F ' = ' '$1 ~ /^version/ { gsub(/["]/, "", $2); print $2; exit }' Cargo.toml)
-          if [[ -z "$PKG_VERSION" ]]; then
-            echo "Failed to read version from Cargo.toml"
-            exit 1
-          fi
-
-          TAG_NAME="v${PKG_VERSION}"
-
-          # Ensure tag exists (created by tags.yml)
-          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Expected tag $TAG_NAME not found. Ensure tags workflow created it."
-            exit 1
-          fi
-
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG_NAME, Version: $VERSION"
 
   release:
     name: Build and Release
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     needs: "get-tag"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -65,6 +41,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: "minimal"
+          toolchain: "stable"
+          override: true
       - name: Build project
         run: cargo build --release
       - name: Upload binary to release
@@ -77,7 +59,7 @@ jobs:
 
   release-shapes-installer:
     name: Release patterns and installer
-    needs: ["release","get-tag"]
+    needs: ["release", "get-tag"]
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout code
@@ -99,14 +81,11 @@ jobs:
 
   publish-crates-io:
     name: Publish to crates.io
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     needs: ["get-tag"]
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ needs.get-tag.outputs.tag_name }}
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -117,4 +96,3 @@ jobs:
         run: cargo publish --token ${{ secrets.CRATES_IO_API_KEY }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_API_KEY }}
-
