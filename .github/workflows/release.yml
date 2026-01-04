@@ -23,7 +23,6 @@ jobs:
           VERSION="${TAG_NAME#v}"
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Tag: $TAG_NAME, Version: $VERSION"
 
   release:
     name: Build and Release
