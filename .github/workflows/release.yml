@@ -24,7 +24,6 @@ jobs:
     runs-on: "ubuntu-latest"
     outputs:
       tag_name: ${{ steps.tag-info.outputs.tag_name }}
-      version: ${{ steps.tag-info.outputs.version }}
     steps:
       - name: "Extract tag info"
         id: "tag-info"
@@ -36,10 +35,8 @@ jobs:
           else
             TAG_NAME="${GITHUB_REF#refs/tags/}"
           fi
-          VERSION="${TAG_NAME#v}"
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Tag: $TAG_NAME, Version: $VERSION"
+          echo "Tag: $TAG_NAME"
 
   release:
     name: Build and Release
@@ -50,10 +47,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: rustmaton
-            asset_name: rustmaton-${{ needs.get-tag.outputs.version }}-linux-amd64
+            asset_name: rustmaton-${{ needs.get-tag.outputs.tag_name }}-linux-amd64
           - os: macos-latest
             artifact_name: rustmaton
-            asset_name: rustmaton-${{ needs.get-tag.outputs.version }}-macos-amd64
+            asset_name: rustmaton-${{ needs.get-tag.outputs.tag_name }}-macos-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
